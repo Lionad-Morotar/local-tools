@@ -1,20 +1,7 @@
 ---
 name: find-source
-description: |
-  为代码改动、配置变更或技术决策查找文档源头和依据。
-
-  使用场景：
-  1. 用户做了某个改动（如添加 eslint --cache），想知道这个改动的官方文档出处
-  2. 用户不确定某个配置的正确性，需要找到权威来源验证
-  3. 代码审查时需要确认改动是否符合项目约定或官方推荐
-  4. 需要为技术决策提供可追溯的文档依据
-
-  触发条件：
-  - 用户问"这个改动的文档在哪里"
-  - 用户问"这个配置的官方文档是什么"
-  - 用户需要"找到这个变更的源头/依据"
-  - 用户说"这个改动有文档支持吗"
-  - 需要验证技术决策的权威性时
+disable-model-invocation: true
+description: 为代码改动、配置变更或技术决策查找文档源头和依据。使用场景：1. 为技术决策提供可追溯的文档依据，如用户做了某个改动（如添加 eslint --cache），想知道这个改动的官方文档出处；2. 从上下文自动捕获重要角色
 ---
 
 # find-source
@@ -162,9 +149,35 @@ description: |
 3. 查找外部: WebSearch "git branching strategy main test release"
 4. 输出: 项目约定文档 + 行业最佳实践参考
 
+### 示例3：从上下文获取查询内容
+
+**上一轮**
+用户: 更新 /Users/lionad/.claude/settings.json，禁止 git push
+You: 
+```
+已完成。在 `settings.json` 中添加了一个 `PreToolUse` hook：
+- 匹配 `Bash` 工具调用
+- 如果命令包含 `git push`（不区分大小写），输出 `permissionDecision: "deny"` 拦截执行
+- 其他命令正常放行
+**验证结果**：
+- JSON 语法通过 `jq -e` 校验
+- hook 命令已正确写入
+**生效方式**：
+由于 Claude Code 的 settings watcher 对 `.claude/` 目录的配置热重载有限制，你可能需要：
+1. 在会话中输入 `/hooks` 打开 hooks 管理界面，这会触发配置重载
+2. 或者重启 Claude Code
+完成后，任何我尝试执行的 `git push` 都会被拒绝。
+```
+
+**此轮**
+用户：`/find-source`
+You：将给关键决策补充文档来源：
+   1. 查找 PreToolUse 文档关于 permissionDecision 的信息
+   2. 查找 Claude Code 配置热重载模式
+
 ## 注意事项
 
 1. **区分层级**: 明确区分官方文档、项目约定、社区实践
 2. **提供上下文**: 不仅给出链接，还要说明为什么这个来源权威
 3. **完整性**: 如果涉及多个配置项，为每个都找到来源
-4. **可追溯性**: 优先使用 Context7 等结构化文档，其次是官方文档链接
+4. **可追溯性**: 优先使用 Context7 等结构化文档，其次是官方文档链接，最后使用 Github、Stack Overflow、以及高质量第三方论坛
