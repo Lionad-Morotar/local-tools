@@ -168,61 +168,6 @@ async def extract_project_data(url: str) -> dict:
     )
 
 
-def ensure_behance_folders():
-    """
-    确保 metadata.json 中 Behance 顶层文件夹及其分类子文件夹存在
-    """
-    metadata_path = LIBRARY_ROOT / "metadata.json"
-    with open(metadata_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    folders = data.get("folders", [])
-    now_ms = int(__import__("datetime").datetime.now().timestamp() * 1000)
-
-    # 查找 Behance 顶层文件夹
-    behance_folder = None
-    for folder in folders:
-        if folder.get("name") == "Behance":
-            behance_folder = folder
-            break
-
-    if behance_folder is None:
-        behance_folder = {
-            "id": "FBehance",
-            "name": "Behance",
-            "description": "",
-            "children": [],
-            "modificationTime": now_ms,
-            "tags": [],
-            "password": "",
-            "passwordTips": ""
-        }
-        folders.append(behance_folder)
-        print("   创建 Behance 顶层文件夹")
-
-    # 确保所有分类子文件夹存在
-    existing_children = {child.get("name"): child for child in behance_folder.get("children", [])}
-    for chinese_name, folder_id in FOLDER_IDS["Behance"].items():
-        if chinese_name not in existing_children:
-            new_child = {
-                "id": folder_id,
-                "name": chinese_name,
-                "description": "",
-                "children": [],
-                "modificationTime": now_ms,
-                "tags": [],
-                "password": "",
-                "passwordTips": ""
-            }
-            behance_folder.setdefault("children", []).append(new_child)
-
-    # 原子写入
-    temp_path = metadata_path.with_suffix(".tmp")
-    with open(temp_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    temp_path.replace(metadata_path)
-
-
 def archive_behance(url: str, star: int, project_data: dict):
     """
     归档 Behance 项目到 Eagle
@@ -256,13 +201,10 @@ def archive_behance(url: str, star: int, project_data: dict):
     if not images:
         raise ValueError("没有找到可下载的图片")
 
-    # 确保 Behance 文件夹层级存在
-    ensure_behance_folders()
-
     # 确定目标文件夹（取第一个匹配的字段，默认未分类）
     target_folder_id = get_target_folder_id(creative_fields)
     folder_name = creative_fields[0] if creative_fields else "未分类"
-    print(f"\n📁 目标文件夹: {FIELD_MAP.get(folder_name, '未分类')}")
+    print(f"\n📁 目标文件夹: {FIELD_MAP.get(folder_name, '未分类')} (ID: {target_folder_id})")
 
     # 创建项目子文件夹
     safe_name = sanitize_filename(title, max_len=60)
