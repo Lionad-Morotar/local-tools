@@ -65,3 +65,6 @@
 	path = syncs/design-md-cn
 	url = git@github.com:Lionad-Morotar/awesome-design-md-cn.git
 	branch = translation/cn
+[submodule "syncs/compound-engineering-plugin-cn"]
+	path = syncs/compound-engineering-plugin-cn
+	url = git@github.com:Lionad-Morotar/compound-engineering-plugin-cn.git
