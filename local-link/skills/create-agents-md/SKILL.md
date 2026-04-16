@@ -14,7 +14,7 @@ disable-model-invocation: true
 
 ## 工作步骤
 
-1. 如果不存在 gsd-docs，但存在 `gsd:map-codebase` 技能，使用 Ask 工具询问用户是否执行 `gsd:map-codebase` 技能生成设计上下文相关文档
+1. 如果不存在 gsd-docs，但存在 `gsd:map-codebase` 技能，使用 Ask 工具询问用户是否派发子代理执行 `gsd:map-codebase` 技能生成设计上下文相关文档
   1.1 如果用户确认执行技能，技能执行完毕后，禁止 git 提交，应优先把文档内容翻译成中文，再继续执行本技能剩余流程 
   1.2 如果用户拒绝执行技能，继续执行剩余流程
 2. 如果不存在 A 文件
@@ -47,6 +47,8 @@ disable-model-invocation: true
 
 ## 补充 Agents.md 模版内容
 
+**补充内容应当严格归档至表格链接**
+
 * 如果项目存在 gsd-docs（或刚刚已经生成），文档可这样补充：
 
 ```markdown
@@ -61,7 +63,7 @@ disable-model-invocation: true
 | [CONCERNS.md](./.planning/codebase/CONCERNS.md)         | 技术债务、注意事项         |
 ```
 
-* 如果项目存在设计上下文，文档可这样补充：
+* 如果项目存在设计上下文（或刚刚生成），文档可这样补充：
 
 ```markdown
 | 文档                                                    | 说明                       |
