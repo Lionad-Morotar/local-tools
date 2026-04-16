@@ -22,7 +22,7 @@ disable-model-invocation: true
   2.2 如果不存在 C，复制模版内容到 A，然后继续
 3. 如果存在 C 文件，删除它
 4. `ln -s {$project_root}/Agents.md {$project_root}/Claude.md`
-5. 如果不存在设计上下文，但存在 `teach-impeccable` 技能：使用 Ask 工具询问用户是否执行 `teach-impeccable` 技能创建设计上下文
+5. 如果不存在设计上下文，但存在 `teach-impeccable` 技能：使用 Ask 工具询问用户是否派发子代理执行 `teach-impeccable` 技能创建设计上下文
 6. 不要提交，除非用户明确要求
 
 ## Agents.md 模版
