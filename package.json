@@ -18,8 +18,8 @@
     "test:ollama:embedding-qwen3": "sh packages/ollama/test/embedding-qwen3.sh",
     "test:split-pdf": "npx vitest packages/split-pdf",
     "test:translate-server": "sh packages/translator/test/im-translator.sh",
-    "link:skills": "bash scripts/init-project/main.sh && bash scripts/link-skills/main.sh && echo 'link:skills done'",
-    "link:skills:dry": "bash scripts/init-project/main.sh && bash scripts/link-skills/main.sh --dry-run"
+    "link:skills": "bash scripts/link-skills/main.sh && echo 'link:skills done'",
+    "link:skills:dry": "bash scripts/link-skills/main.sh --dry-run"
   },
   "keywords": [],
   "author": "",
