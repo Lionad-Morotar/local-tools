@@ -14,7 +14,7 @@ disable-model-invocation: true
 
 1. 根据是否已经初始化 $isInited 初始化或获取数据: 
   1.1 获取项目数据，如果分析时间距今超过 $cacheTime，则重新分析项目
-  1.2 初始化，在 [db](./db/) 目录下初始化 sqlite 数据库
+  1.2 初始化，在 [db](./db/) 目录下初始化 sqlite 数据库，并创建文件占位 `./db/inited.lock`
 2. 分析项目:
   2.1 分支模型: gitflow、github flow、gitlab flow、自建模式、无显著分支模型
   2.2 分析时分支所在短哈希: $hash
