@@ -4,22 +4,66 @@ description: 识别并记忆项目 git 分支模型
 disable-model-invocation: true
 ---
 
-## context
+将项目信息持久化到本地 SQLite 数据库，用于后续快速查询和分析。
 
-* $isInited: `exists ./db/inited.lock`
-* $project: 从用户输入或上下文判断待分析的 git 项目
-* $cacheTime: 缓存超时时间，默认为一周
+## 数据库
 
-## workflow
+- 路径：`./db/branches.sqlite3`
+- 初始化标记：`./db/inited.lock`
 
-1. 根据是否已经初始化 $isInited 初始化或获取数据: 
-  1.1 获取项目数据，如果分析时间距今超过 $cacheTime，则重新分析项目
-  1.2 初始化，在 [db](./db/) 目录下初始化 sqlite 数据库，并创建文件占位 `./db/inited.lock`
-2. 分析项目:
-  2.1 分支模型: gitflow、github flow、gitlab flow、自建模式、无显著分支模型
-  2.2 分析时分支所在短哈希: $hash
-3. 将项目信息更新数据库: 项目路径（realpath，作为主键）、项目名、分支模型、总提交数、最后提交日期、最后提交用户、用户数组、分析时间、$hash
-4. 组装返回结果
+## Workflow
+
+### 1. 初始化（首次使用）
+
+检查 `./db/inited.lock` 是否存在。不存在时：
+- 创建 SQLite 数据库
+- 执行建表语句：
+  ```sql
+  CREATE TABLE projects (
+    path TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    branch_model TEXT NOT NULL,
+    total_commits INTEGER NOT NULL DEFAULT 0,
+    last_commit_date TEXT,
+    last_commit_user TEXT,
+    users TEXT DEFAULT '[]',
+    analyzed_at TEXT NOT NULL,
+    hash TEXT NOT NULL
+  );
+  ```
+- 写入 `./db/inited.lock`
+
+### 2. 检查缓存
+
+对每个待分析项目（realpath 作为主键）：
+- 查询 `analyzed_at` 字段
+- 若距今 ≤7 天，直接跳过（SKIP），除非用户有强制覆盖意图
+- 否则重新分析
+
+### 3. 分析项目
+
+收集以下 git 信息：
+- `total_commits`: `git rev-list --count --all`
+- `last_commit_date`: 最近提交日期
+- `last_commit_user`: 最近提交者
+- `users`: 全部提交者去重后的数组
+- `hash`: 当前 HEAD 短哈希（7 位）
+
+获取所有本地和远程分支（去重）：
+```bash
+git branch -a | sed 's/^[* ]*//' | sed 's|remotes/[^/]*/||' | sort -u
+```
+
+### 4. 分支模型判断（由你推理决定）
+
+根据收集到的分支上下文，结合你对分支模型的理解，做出判断。
+
+可选判定结果：gitflow、github flow、gitlab flow、无显著分支模型、自建模式
+
+### 5. 写入数据库
+
+使用 `INSERT OR REPLACE` 更新项目记录，字段：
+`path`, `name`, `branch_model`, `total_commits`, `last_commit_date`, `last_commit_user`, `users`, `analyzed_at`, `hash`
 
 ## References
 
