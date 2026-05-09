@@ -5,7 +5,7 @@ description: 绘制 Excalidraw 图表并存档到 Obsidian Chaos 文件夹。触
 
 # Save Excalidraw to Obsidian Chaos
 
-绘制 Excalidraw 图表并存档到 `/Users/lionad/Github/Obsidian/Chaos/`。
+绘制 Excalidraw 图表并存档到 `~/Github/Obsidian/Chaos/`。
 
 ## Workflow
 
@@ -29,7 +29,7 @@ description: 绘制 Excalidraw 图表并存档到 Obsidian Chaos 文件夹。触
    ```
    %%
    ```
-5. **写入文件** - 路径：`/Users/lionad/Github/Obsidian/Chaos/{taskname}.md`
+5. **写入文件** - 路径：`~/Github/Obsidian/Chaos/{taskname}.md`
 6. **确认** - 告知路径、图表类型和使用说明
 
 ## Design Rules
@@ -42,5 +42,5 @@ description: 绘制 Excalidraw 图表并存档到 Obsidian Chaos 文件夹。触
 
 ## Implementation
 
-- 使用 `mkdir -p /Users/lionad/Github/Obsidian/Chaos` 确保目录存在
+- 使用 `mkdir -p ~/Github/Obsidian/Chaos` 确保目录存在
 - 文件名格式：`{主题}.{类型}.md`，如 `用户登录流程.flowchart.md`

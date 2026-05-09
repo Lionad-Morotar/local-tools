@@ -42,7 +42,10 @@ disable-model-invocation: true
 1. 读取 `content/6.maps/Agents.md` 可参考现有结构（置信度低）
 2. 每个知识点都应使用基于**四层认知结构**（Domain → Subdomain → Topic → “#### <标题>”）的定位技术
 3. 禁止使用笼统的标题（如"## 学习资源"、"## 参考链接"）创建标题以及归档到这些位置
-4. 优先使用[JS脚本](./scripts/extract-markdown-meta.js)读取文件元数据（包含标题、目录等）以确定文档内容，而不是直接读取整个文档：`node xxx.js <文档绝对路径> [--depth=3]`
+4. 优先使用 JS 脚本读取文件元数据（包含标题、目录等）以确定文档内容，而不是直接读取整个文档。脚本位于 skill 私有工具链目录：
+   ```bash
+   node ~/.claude/skills/distill-and-archive/scripts/extract-markdown-meta.js <文档绝对路径> [--depth=3]
+   ```
 5. 避免**过拟合陷阱**：不要仅因为文章提到了某领域术语，就将其归入该领域
 6. 简单知识保持单一核心观点，不强行拆分
 7. 禁止使用 `---` 分隔线

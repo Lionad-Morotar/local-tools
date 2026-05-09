@@ -5,14 +5,14 @@ description: 将 Mermaid 图表保存到 Obsidian Chaos 文件夹。触发词：
 
 # Save Mermaid to Obsidian Chaos
 
-将 Mermaid 图表保存到 `/Users/lionad/Github/Obsidian/Chaos/`。
+将 Mermaid 图表保存到 `~/Github/Obsidian/Chaos/`。
 
 ## Workflow
 
 1. **获取图表内容** - 从对话中提取 Mermaid 代码
 2. **生成文件名** - 基于主题生成 `{taskname}.md`
 3. **构建内容** - 使用标准 Obsidian 格式
-4. **写入文件** - 路径：`/Users/lionad/Github/Obsidian/Chaos/{taskname}.md`
+4. **写入文件** - 路径：`~/Github/Obsidian/Chaos/{taskname}.md`
 
 ## 常见错误与修复
 
@@ -47,5 +47,5 @@ xychart-beta
 
 ## Implementation
 
-- 使用 `mkdir -p /Users/lionad/Github/Obsidian/Chaos` 确保目录存在
+- 使用 `mkdir -p ~/Github/Obsidian/Chaos` 确保目录存在
 - 使用 Write 工具写入文件

@@ -5,7 +5,7 @@ description: 修改我的本地应用配置
 
 ## Context
 
-* 项目配置文件：`/Users/lionad/Library/Application Support/Code - Insiders/User/globalStorage/alefragnani.project-manager/projects.json`
+* 项目配置文件：`~/Library/Application Support/Code - Insiders/User/globalStorage/alefragnani.project-manager/projects.json`
 * FavFile配置文件：`~/Library/Application Support/Code - Insiders/User/globalStorage/fredjeck.fav/favorites.json`
 
 ## Workflow

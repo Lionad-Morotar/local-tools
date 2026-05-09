@@ -29,7 +29,7 @@ gh repo create <project-name> --public --description "<description>"
 在 `local-link/skills` 目录下添加 submodule：
 
 ```bash
-cd /Users/lionad/G/Local/local-link/skills
+cd ~/G/Local/local-link/skills
 git submodule add https://github.com/Lionad-Morotar/<project-name>.git <project-name>
 ```
 
@@ -40,7 +40,7 @@ git submodule add https://github.com/Lionad-Morotar/<project-name>.git <project-
 如果 `~/.claude/skills/<skill-name>` 已存在，复制其内容到 submodule：
 
 ```bash
-cp -r ~/.claude/skills/<skill-name>/* /Users/lionad/G/Local/local-link/skills/<project-name>/
+cp -r ~/.claude/skills/<skill-name>/* ~/G/Local/local-link/skills/<project-name>/
 ```
 
 ### 4. 创建软链接
@@ -50,7 +50,7 @@ cp -r ~/.claude/skills/<skill-name>/* /Users/lionad/G/Local/local-link/skills/<p
 ```bash
 # 1. backup
 # 2. rm -rf ~/.claude/skills/<skill-name>
-# 3. ln -s /Users/lionad/G/Local/local-link/skills/<project-name>/skills/<skill-name> ~/.claude/skills/<skill-name>
+# 3. ln -s ~/G/Local/local-link/skills/<project-name>/skills/<skill-name> ~/.claude/skills/<skill-name>
 ```
 
 **注意**：软链接应指向 `skills/<skill-name>` 子目录（如果采用 translating-project 模式）。
@@ -58,7 +58,7 @@ cp -r ~/.claude/skills/<skill-name>/* /Users/lionad/G/Local/local-link/skills/<p
 ### 5. 提交并推送
 
 ```bash
-cd /Users/lionad/G/Local/local-link/skills/<project-name>
+cd ~/G/Local/local-link/skills/<project-name>
 git add -A
 git commit -m "Initial commit"
 git push

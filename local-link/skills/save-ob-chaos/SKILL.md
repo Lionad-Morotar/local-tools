@@ -5,7 +5,7 @@ description: 将对话内容快速存档到 Obsidian Chaos 文件夹。触发词
 
 将重要内容存档到我的 Obsidian 文档归档处。
 
-* $target_valt: `mkdir -p /Users/lionad/Github/Obsidian/Chaos`
+* $target_valt: `mkdir -p ~/Github/Obsidian/Chaos`
 * 需存档内容：
   - 如果用户输入明确了需存档内容，使用用户输入
   - 如果上下文涉及了文档，如 `*.md`，则完整拷贝相关文档，可能是多份

@@ -2,7 +2,7 @@
 
 ```bash
 mkdir -p "$HOME/.config/edge/Default"
-cp -R "/Users/lionad/Library/Application Support/Microsoft Edge/Default" "$HOME/.config/edge/Default"
+cp -R "~/Library/Application Support/Microsoft Edge/Default" "$HOME/.config/edge/Default"
 ```
 
 2.2 open a edge instance
