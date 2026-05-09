@@ -1,46 +1,49 @@
 ---
 name: prompt-to-image
-description: 将文本提示词生成图片。使用场景：(1) 用户要求"生成图片"、"创建图像"、"画一张图" (2) 用户描述视觉场景并希望看到图片 (3) 用户说"prompt to image"、"text to image"等关键词。默认使用 gemini-3-pro-image-preview 模型，支持自定义模型名称。图片和响应会保存到 ~/.prompt-to-image/ 目录。自动从上下文提取提示词，生成后自动打开图片。
+description: 从上下文提取提示词，为用户生成并打开图片。
+argument-hint: "[--model <gpt-image-2|gemini-3-pro-image-preview>]"
 ---
+
+**Flags:**
+- `--model` — 指定生成图片的模型。可选值：`gpt-image-2`（默认）、`gemini-3-pro-image-preview`。省略时默认使用 GPT Image。
 
 ## 工作流程
 
-### 1. 提取提示词
+### 1. 提取变量
 
 按照以下优先级自动提取提示词：
 
-**提取来源（二选一，优先级从高到低）：**
-1. **用户当前输入** - 排除 "/prompt-to-image" 命令本身后的内容
-2. **对话上下文** - 查找之前生成的提示词（按以下格式优先级）
+**提示词来源（二选一，优先级从高到低）：**
+1. 从用户当前输入截取（而不是重写）
+2. 对话上下文 - 查找之前生成对话已有提示词（按以下格式优先级）
 
 **提示词格式（三选一，优先级从高到低）：**
-1. **中文优化版** - 夹杂英文术语的版本（如：抽象表现主义(Abstract Expressionism)）
-2. **英文版** - 纯英文结构化提示词
-3. **纯中文版** - 纯中文描述
+1. 中文优化版 - 夹杂英文术语的版本（如：抽象表现主义(Abstract Expressionism)）
+2. 英文版 - 纯英文结构化提示词
+3. 纯中文版 - 纯中文描述
 
 **提取策略：**
 - 检查用户输入是否包含视觉描述关键词（主体、风格、色彩、构图等）
 - 若当前输入无有效提示词，回溯对话历史查找最近生成的完整提示词
-- 提示词通常出现在 "image-to-prompt" 技能的输出中
 
 ### 2. 预处理提示词
 
-**🚨 绝对禁止**: **提示词禁止转写！禁止简化！禁止使用模板包裹！**
+**🚨 绝对禁止**: **提示词禁止转写和简化！**
 - 用户提供的提示词必须**原样使用**，不得添加任何前置描述（如"这是一张...的图片"）
 - 不得将结构化 JSON 简化或提取关键元素，必须完整保留原始内容
 - 不得使用 "Generate an image of..." 等模板包裹用户提示词
 - 唯一允许的操作是**转义特殊字符**以适应 JSON 格式要求
 
-**必须处理**：提取的提示词可能包含换行符、引号等特殊字符，直接嵌入 JSON 会导致解析错误（如 `invalid character '\n' in string literal`）。
+必须处理：提取的提示词可能包含换行符、引号等特殊字符，直接嵌入 JSON 会导致解析错误（如 `invalid character '\n' in string literal`）。
 
-**处理方式**（仅做字符转义，不改变内容）：
+转义方式：
 ```bash
 # 将提示词中的换行符替换为空格，双引号转义
 # 注意：这只是格式转义，提示词内容必须保持原样！
 processed_prompt=$(echo "$raw_prompt" | tr '\n' ' ' | sed 's/"/\\"/g')
 ```
 
-**处理规则**：
+转义规则示例：
 | 字符 | 处理方式 | 原因 |
 |------|----------|------|
 | 换行符 `\n` | 替换为空格 | JSON string 中不允许未转义的换行 |
@@ -49,12 +52,22 @@ processed_prompt=$(echo "$raw_prompt" | tr '\n' ' ' | sed 's/"/\\"/g')
 
 ### 3. 解析模型参数
 
-- **模型名称** (可选): 默认 `gemini-3-pro-image-preview`
-- 用户可指定："用 gemini-2.0-flash-exp 生成图片"
+**模型检测**：根据用户输入中的关键词确定模型和 API 调用方式。
+
+| 关键词 | 模型名称 | API 类型 |
+|--------|----------|----------|
+| (默认，无关键词) | `gpt-image-2` | GPT Image |
+| `gemini`, `gemini-3-pro`, `gemini-3` | `gemini-3-pro-image-preview` | Gemini |
+
+**使用示例**：
+- `/prompt-to-image` → 默认使用 gpt-image-2
+- `/prompt-to-image 用 gemini-3-pro 生成` → 使用 gemini-3-pro-image-preview
+
+- 用户也可指定其他 Gemini 系列模型："用 gemini-2.0-flash-exp 生成图片"
 
 ### 4. 读取 API 密钥并调用 API（必须在同一脚本中）
 
-**⚠️ 关键要求**: 读取密钥和调用 API 必须在**同一个 shell 脚本/代码块**中执行，否则 API 调用会找不到 `$API_KEY` 环境变量。
+**关键**: 读取密钥和调用 API 必须在**同一个 shell 脚本/代码块**中执行，否则 API 调用会找不到 `$API_KEY` 环境变量。
 
 完整流程代码：
 
@@ -93,10 +106,10 @@ fi
 echo "✅ API 密钥已加载"
 
 # ============================================
-# 步骤 3: 立即调用 API（确保在同一脚本上下文中）
+# 步骤 3: 根据模型选择 API 端点并调用（确保在同一脚本上下文中）
 # ============================================
 
-MODEL_NAME="gemini-3-pro-image-preview"
+# MODEL_NAME 由步骤 3 确定，默认 "gpt-image-2"
 DATE_DIR=$(date +%Y-%m-%d)
 TIME_STAMP=$(date +%H-%M-%S.%3N)
 OUTPUT_DIR="${HOME}/.prompt-to-image/${DATE_DIR}/grsapi.xyz/${MODEL_NAME}"
@@ -104,43 +117,60 @@ mkdir -p "$OUTPUT_DIR"
 
 RESPONSE_FILE="${OUTPUT_DIR}/${TIME_STAMP}.json"
 
-echo "🎨 正在调用 API 生成图片..."
-curl -s --location --request POST \
-  "https://grsapi.xyz/v1beta/models/${MODEL_NAME}:generateContent" \
-  --header 'Content-Type: application/json' \
-  --header "Authorization: Bearer $API_KEY" \
-  --data-raw "{
-    \"contents\": [{
-      \"role\": \"user\",
-      \"parts\": [{\"text\": \"$processed_prompt\"}]
-    }],
-    \"generationConfig\": {
-      \"responseModalities\": [\"TEXT\", \"IMAGE\"]
-    }
-  }" > "$RESPONSE_FILE"
+echo "🎨 正在调用 API 生成图片 (模型: ${MODEL_NAME})..."
+
+if [[ "$MODEL_NAME" == "gemini-3-pro-image-preview" ]]; then
+  # Gemini API
+  curl -s --location --request POST \
+    "https://grsapi.xyz/v1beta/models/${MODEL_NAME}:generateContent" \
+    --header 'Content-Type: application/json' \
+    --header "Authorization: Bearer $API_KEY" \
+    --data-raw "{
+      \"contents\": [{
+        \"role\": \"user\",
+        \"parts\": [{\"text\": \"$processed_prompt\"}]
+      }],
+      \"generationConfig\": {
+        \"responseModalities\": [\"TEXT\", \"IMAGE\"]
+      }
+    }" > "$RESPONSE_FILE"
+else
+  # GPT Image API (默认)
+  curl -s --location --request POST \
+    "https://grsapi.xyz/v1/images/generations" \
+    --header 'Accept: application/json' \
+    --header "Authorization: Bearer $API_KEY" \
+    --header 'Content-Type: application/json' \
+    --data-raw "{
+      \"size\": \"1920x1080\",
+      \"prompt\": \"$processed_prompt\",
+      \"model\": \"gpt-image-2\",
+      \"n\": 1
+    }" > "$RESPONSE_FILE"
+fi
 
 echo "✅ API 调用完成，响应保存至: $RESPONSE_FILE"
 ```
 
-**配置文件格式** (`~/.config/prompt-to-image/.env`):
+配置文件格式 (`~/.config/prompt-to-image/.env`):
 ```
 API_KEY=sk-your-api-key-here
 ```
 
-**⚠️ 路径安全提示**:
-- **推荐**: 使用 `"${HOME}/path"` 替代 `"~/path"`，确保在所有上下文（脚本、函数、引号内）都能正确展开
-- **避免**: 直接使用 `~`，因为在双引号内或某些 shell 函数中可能无法正确展开
-- **备用**: 如果必须使用 `~`，确保进行显式展开：`"${path/#\~/$HOME}"`
+⚠️ 路径安全提示:
+- 推荐: 使用 `"${HOME}/path"` 替代 `"~/path"`，确保在所有上下文（脚本、函数、引号内）都能正确展开
+- 避免: 直接使用 `~`，因为在双引号内或某些 shell 函数中可能无法正确展开
+- 备用: 如果必须使用 `~`，确保进行显式展开：`"${path/#\~/$HOME}"`
 
-**⚠️ 密钥加载提示**:
+⚠️ 密钥加载提示:
 - 使用 `set -a; source "$CONFIG_FILE"; set +a` 方式加载，比 `export $(grep ... | xargs)` 更可靠
 - `set -a` 会自动导出所有变量，避免 `xargs` 处理特殊字符的问题
-- **关键**: 必须在加载密钥后立即调用 API，确保 `$API_KEY` 在同一 shell 上下文中可用
+- 关键: 必须在加载密钥后立即调用 API，确保 `$API_KEY` 在同一 shell 上下文中可用
 
-**重要**:
+重要:
 - 使用 `-s` (silent) 参数确保输出纯净 JSON，不包含 curl 进度信息
-- **仅调用一次 API**，无论返回何种错误（配额耗尽、渠道不可用、模型不存在等），都不尝试其他模型或重试
-- **禁止转写提示词**: 使用用户提供的原始提示词，不得简化或改写
+- 仅调用一次 API，无论返回何种错误（配额耗尽、渠道不可用、模型不存在等），都不尝试其他模型或重试
+- 禁止转写提示词: 使用用户提供的原始提示词，不得简化或改写
 
 ### 5. 保存响应并验证
 
@@ -155,13 +185,13 @@ ${HOME}/.prompt-to-image/
               └── image_xxx.jpg        (提取的图片)
 ```
 
-**时间戳格式**:
+时间戳格式:
 - 日期: `2026-02-24`
 - 时间: `15-30-45.123` (小时-分钟-秒.毫秒)
 
-**路径安全**: 在脚本中使用 `${HOME}` 而非 `~`，确保路径在所有上下文中正确解析
+路径安全: 在脚本中使用 `${HOME}` 而非 `~`，确保路径在所有上下文中正确解析
 
-**保存后必须验证 JSON 有效性**:
+保存后必须验证 JSON 有效性:
 ```bash
 python3 -c "import json; json.load(open('<response>.json'))" && echo "JSON valid"
 ```
@@ -170,7 +200,7 @@ python3 -c "import json; json.load(open('<response>.json'))" && echo "JSON valid
 
 ### 6. 提取图片
 
-使用 `scripts/extract_images.py` 从响应中提取 base64 图片:
+使用 `scripts/extract_images.py` 从响应中提取图片。脚本自动检测响应格式（Gemini inlineData 或 GPT Image URL/base64）：
 
 ```bash
 python3 scripts/extract_images.py <response.json> <output_dir>
@@ -178,12 +208,12 @@ python3 scripts/extract_images.py <response.json> <output_dir>
 
 ### 7. 等待文件同步完成（关键步骤）
 
-**问题背景**: 文件写入和打开之间存在时间差，可能导致图片查看器加载失败。这在以下场景尤为明显：
+问题背景: 文件写入和打开之间存在时间差，可能导致图片查看器加载失败。这在以下场景尤为明显：
 - 云同步目录（OneDrive、iCloud、Google Drive）
 - 网络文件系统
 - 高 I/O 负载环境
 
-**泛化解决方案** - 使用 `wait_for_file.sh` 脚本：
+泛化解决方案 - 使用 `wait_for_file.sh` 脚本：
 
 ```bash
 # 定义安全的输出目录路径（使用 ${HOME} 而非 ~）
@@ -201,13 +231,13 @@ IMAGE_FILE=$(ls -t "$OUTPUT_DIR"/image_*.jpg "$OUTPUT_DIR"/image_*.png 2>/dev/nu
 scripts/wait_for_file.sh "$IMAGE_FILE" 10  # 10秒超时
 ```
 
-**检测机制**（跨平台泛化）：
-1. **文件存在检测** - 等待文件出现在文件系统
-2. **大小稳定性检测** - 连续两次检查文件大小不变（确保写入完成）
-3. **系统同步** - 执行 `sync` 命令刷新文件系统缓存
-4. **超时保护** - 默认10秒超时，防止无限等待
+检测机制（跨平台泛化）：
+1. 文件存在检测 - 等待文件出现在文件系统
+2. 大小稳定性检测 - 连续两次检查文件大小不变（确保写入完成）
+3. 系统同步 - 执行 `sync` 命令刷新文件系统缓存
+4. 超时保护 - 默认10秒超时，防止无限等待
 
-**备选方案**（如果 wait_for_file.sh 不可用）：
+备选方案（如果 wait_for_file.sh 不可用）：
 ```bash
 # 简单延迟方案（不够精确但通用）
 sleep 0.5
@@ -237,95 +267,72 @@ fi
 ✅ 图片已自动打开
 ```
 
-**注意**: Markdown 中 `${HOME}` 不会自动展开，实际使用时应替换为完整路径或使用 shell 展开后的值
-
-## 示例
-
-**示例 1 - 直接使用当前输入:**
-```
-用户: /prompt-to-image 生成一张猫咪的图片
-→ 提取提示词: "生成一张猫咪的图片"
-```
-
-**示例 2 - 从上下文提取（刚用 image-to-prompt 生成提示词）:**
-```
-用户: /image-to-prompt cat.png
-[输出生成中英文提示词]
-
-用户: /prompt-to-image
-→ 自动提取上一步生成的提示词（优先中文优化版）
-```
-
-**示例 3 - 指定模型:**
-```
-用户: /prompt-to-image 用 gemini-2.0-flash-exp 生成
-→ 使用指定模型，提示词从上下文提取
-→ 若该模型不可用，立即失败并报告错误，不自动切换其他模型
-```
+注意: Markdown 中 `${HOME}` 不会自动展开，实际使用时应替换为完整路径或使用 shell 展开后的值
 
 ## 错误处理
 
-- **配置文件不存在**: 提示用户创建 `${HOME}/.config/prompt-to-image/.env` 文件并设置 API_KEY
-- **路径展开失败**: 确保使用 `${HOME}` 而非 `~`，特别是在双引号内的字符串中
-- **未找到提示词**: 提示用户请提供图片描述或先使用 image-to-prompt 生成提示词
-- **API 调用失败**: 立即停止，报告错误信息给用户，不尝试其他模型或重试
-- **提示词预处理错误**: 如果提示词包含无法处理的特殊字符，报告错误
-- **JSON 验证失败**: 报告错误，不尝试修复或重新调用 API
-- **响应无图片**: 提示用户响应中未包含图片
-- **文件写入失败**: 检查目录权限，报告错误
-- **无法打开图片**: 报告图片路径，用户可手动打开
+- 配置文件不存在: 提示用户创建 `${HOME}/.config/prompt-to-image/.env` 文件并设置 API_KEY
+- 路径展开失败: 确保使用 `${HOME}` 而非 `~`，特别是在双引号内的字符串中
+- 未找到提示词: 提示用户请提供图片描述或先使用 image-to-prompt 生成提示词
+- API 调用失败: 立即停止，报告错误信息给用户，不尝试其他模型或重试
+- 提示词预处理错误: 如果提示词包含无法处理的特殊字符，报告错误
+- JSON 验证失败: 报告错误，不尝试修复或重新调用 API
+- 响应无图片: 提示用户响应中未包含图片
+- 文件写入失败: 检查目录权限，报告错误
+- GPT URL 下载失败: 检查网络连接或 URL 有效性，报告下载失败详情
+- 无法打开图片: 报告图片路径，用户可手动打开
 
 ## 优化原则
 
-1. **提示词禁止转写**: 用户提供的提示词必须原样使用，禁止简化、禁止改写、禁止用模板包裹（如"Generate an image of..."），仅允许进行 JSON 字符转义
-2. **密钥与 API 调用同上下文**: 加载 API 密钥和调用 API 必须在同一个 shell 脚本/代码块中执行，确保 `$API_KEY` 环境变量在 API 调用时可用
-3. **尽早失败**: API 请求失败时（包括配额耗尽、渠道不可用等），立即停止并报告错误，不尝试备用模型或重试
-4. **预处理优先**: 在调用 API 前必须对提示词进行预处理，避免 JSON 解析错误
-5. **使用 `-s` 静默模式**: curl 必须加 `-s` 参数，确保输出纯净 JSON
-6. **验证后再处理**: 保存响应后立即验证 JSON 有效性
-7. **文件同步等待**: 打开图片前必须确保文件完全写入磁盘，避免加载失败
-8. **路径安全**: 在脚本中始终使用 `${HOME}` 替代 `~`，确保路径在所有 shell 上下文中正确展开
+1. 提示词禁止转写: 用户提供的提示词必须原样使用，禁止简化、禁止改写、禁止用模板包裹（如"Generate an image of..."），仅允许进行 JSON 字符转义
+2. 密钥与 API 调用同上下文: 加载 API 密钥和调用 API 必须在同一个 shell 脚本/代码块中执行，确保 `$API_KEY` 环境变量在 API 调用时可用
+3. 尽早失败: API 请求失败时（包括配额耗尽、渠道不可用等），立即停止并报告错误，不尝试备用模型或重试
+4. 预处理优先: 在调用 API 前必须对提示词进行预处理，避免 JSON 解析错误
+5. 使用 `-s` 静默模式: curl 必须加 `-s` 参数，确保输出纯净 JSON
+6. 验证后再处理: 保存响应后立即验证 JSON 有效性
+7. 文件同步等待: 打开图片前必须确保文件完全写入磁盘，避免加载失败
+8. 路径安全: 在脚本中始终使用 `${HOME}` 替代 `~`，确保路径在所有 shell 上下文中正确展开
 
 ## 资源
 
 ### scripts/extract_images.py
 
-从 Gemini API 响应中提取 base64 编码的图片并保存为文件。
+从 API 响应中提取图片并保存为文件。支持 Gemini 和 GPT Image 两种响应格式，自动检测并处理。
 
-**用法**:
+用法:
 ```bash
 python3 scripts/extract_images.py <response.json> <output_dir>
 ```
 
-**功能**:
-- 解析 `candidates[].content.parts[].inlineData` 中的图片数据
-- 解码 base64 数据
-- 根据 MIME 类型保存为 `.jpg`、`.png` 等文件
+功能:
+- Gemini 格式: 解析 `candidates[].content.parts[].inlineData` 中的 base64 数据
+- GPT Image 格式: 解析 `data[].url`（下载图片）或 `data[].b64_json`（解码 base64）
+- 根据 MIME 类型或 URL 扩展名保存为 `.jpg`、`.png` 等文件
 - 自动处理重名文件
-- **自动调用 `os.fsync()` 确保数据刷写到磁盘**
+- 自动调用 `os.fsync()` 确保数据刷写到磁盘
 
 ### scripts/wait_for_file.sh
 
 泛化的文件写入完成检测脚本，解决文件写入与读取之间的时间差问题。
 
-**用法**:
+用法:
 ```bash
 scripts/wait_for_file.sh <文件路径> [超时秒数]
 ```
 
-**检测机制**（跨平台泛化）：
+检测机制（跨平台泛化）：
 1. 文件存在检测 - 等待文件出现在文件系统
 2. 大小稳定性检测 - 连续两次检查文件大小不变
 3. 系统同步 - 执行 `sync` 命令刷新文件系统缓存
 4. 超时保护 - 默认10秒超时
 
-**适用场景**:
+适用场景:
 - 云同步目录（OneDrive、iCloud、Google Drive）
 - 网络文件系统（NFS、SMB）
 - 高 I/O 负载环境
 - 任何需要确保文件完全写入的场景
 
-**路径展开**:
+路径展开:
 该脚本会自动处理路径中的 `~` 字符，将其展开为 `${HOME}`:
 ```bash
 # 脚本内部实现
@@ -333,6 +340,6 @@ FILE_PATH="${FILE_PATH/#\~/$HOME}"
 ```
 因此你可以安全地传入包含 `~` 的路径，或直接使用 `${HOME}`。
 
-**返回值**:
+返回值:
 - `0` - 文件就绪
 - `1` - 超时或错误
