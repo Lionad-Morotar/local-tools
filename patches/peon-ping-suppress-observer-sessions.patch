@@ -1,0 +1,16 @@
+# peon-ping: suppress all feedback (sound + notification) for observer-sessions project
+# Target: /opt/homebrew/opt/peon-ping/libexec/peon.sh
+# Apply: cd / && patch -p1 < ~/G/Local/patches/peon-ping-suppress-observer-sessions.patch
+# Reverse: cd / && patch -R -p1 < ~/G/Local/patches/peon-ping-suppress-observer-sessions.patch
+
+--- a/opt/homebrew/opt/peon-ping/libexec/peon.sh
++++ b/opt/homebrew/opt/peon-ping/libexec/peon.sh
+@@ -2424,6 +2424,8 @@
+ fi
+
+ _run_sound_and_notify() {
++  # --- Suppress all feedback for specific projects ---
++  [ "$PROJECT" = "observer-sessions" ] && return 0
+
+   # --- Play sound ---
+   if [ -n "$SOUND_FILE" ] && [ -f "$SOUND_FILE" ]; then
