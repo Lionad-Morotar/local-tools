@@ -12,12 +12,6 @@ skill_has_disable_model_invocation() {
   fi
 }
 
-# 生成 skill name 的首字母缩写（按 - 和 _ 分割）
-generate_acronym() {
-  local name="$1"
-  echo "$name" | awk -F'[-_]' '{for(i=1;i<=NF;i++) printf substr($i,1,1)}'
-}
-
 # 实际执行链接
 step_link_skills() {
   # 将 local-link/skills 下的 skill 目录链接到 Claude skills 目录。
@@ -49,8 +43,6 @@ step_link_skills() {
 
   local found_any=0
   local found_count=0
-  local eligible_file
-  eligible_file=$(mktemp)
 
   _link_skills_scan_dir() {
     local dir="$1"
@@ -67,10 +59,6 @@ step_link_skills() {
 
       safe_symlink "$dir" "$dest_link"
       log_ok "[link-skills] ${_C_BOLD}$skill_name${_C_RESET} -> $dir"
-
-      if skill_has_disable_model_invocation "$dir"; then
-        echo "$skill_name $dir" >> "$eligible_file"
-      fi
     fi
 
     [ "$depth" -gt 0 ] || return 0
@@ -92,36 +80,6 @@ step_link_skills() {
   if [ "$found_any" -eq 0 ]; then
     log_skip "[link-skills] No SKILL.md found under $src_root (dir max depth: $max_depth)."
   fi
-
-  # 为 disable-model-invocation: true 的技能创建首字母缩写 symlink
-  if [ -s "$eligible_file" ]; then
-    local occupied_file
-    occupied_file=$(mktemp)
-
-    while IFS=' ' read -r skill_name dir; do
-      local acronym
-      acronym="$(generate_acronym "$skill_name")"
-
-      if [ -z "$acronym" ]; then
-        continue
-      fi
-
-      if grep -qx "$acronym" "$occupied_file" 2>/dev/null; then
-        warn "[link-skills] Acronym conflict: $acronym already taken. Skipping $skill_name"
-        continue
-      fi
-
-      echo "$acronym" >> "$occupied_file"
-      local acronym_link
-      acronym_link="$dest_root/$acronym"
-      safe_symlink "$dir" "$acronym_link"
-      log_ok "[link-skills] Acronym ${_C_BOLD}$acronym${_C_RESET} -> $skill_name"
-    done < <(sort "$eligible_file")
-
-    rm -f "$occupied_file"
-  fi
-
-  rm -f "$eligible_file"
 }
 
 # Dry run 模式 - 只预览，不执行
@@ -159,8 +117,6 @@ step_link_skills_dry_run() {
   local to_create=0
   local to_update=0
   local existing=0
-  local eligible_file
-  eligible_file=$(mktemp)
 
   _link_skills_scan_dir_dry() {
     local dir="$1"
@@ -193,10 +149,6 @@ step_link_skills_dry_run() {
         log_info "[link-skills] ➕ Would create: ${_C_BOLD}$skill_name${_C_RESET} -> $dir"
         to_create=$((to_create + 1))
       fi
-
-      if skill_has_disable_model_invocation "$dir"; then
-        echo "$skill_name $dir" >> "$eligible_file"
-      fi
     fi
 
     [ "$depth" -gt 0 ] || return 0
@@ -217,47 +169,4 @@ step_link_skills_dry_run() {
   log_info "   ➕ To create: $to_create"
   log_skip "   🔄 To update: $to_update"
   echo ""
-
-  # dry-run：预览 acronym symlink
-  if [ -s "$eligible_file" ]; then
-    local occupied_file
-    occupied_file=$(mktemp)
-
-    log_step "[link-skills] Acronym preview"
-    while IFS=' ' read -r skill_name dir; do
-      local acronym dest_link
-      acronym="$(generate_acronym "$skill_name")"
-      dest_link="$dest_root/$acronym"
-
-      if [ -z "$acronym" ]; then
-        continue
-      fi
-
-      if grep -qx "$acronym" "$occupied_file" 2>/dev/null; then
-        log_skip "[link-skills] Would skip acronym: $acronym (conflict) -> $skill_name"
-        continue
-      fi
-
-      echo "$acronym" >> "$occupied_file"
-
-      if [ -L "$dest_link" ]; then
-        local current_target
-        current_target="$(readlink "$dest_link" 2>/dev/null || echo "")"
-        if [ "$current_target" = "$dir" ]; then
-          log_ok "[link-skills] Acronym already linked: $acronym -> $skill_name"
-        else
-          log_skip "[link-skills] Would update acronym: $acronym -> $skill_name"
-        fi
-      elif [ -e "$dest_link" ]; then
-        warn "[link-skills] Would overwrite acronym (not a symlink): $acronym -> $skill_name"
-      else
-        log_info "[link-skills] Would create acronym: $acronym -> $skill_name"
-      fi
-    done < <(sort "$eligible_file")
-    echo ""
-
-    rm -f "$occupied_file"
-  fi
-
-  rm -f "$eligible_file"
 }
