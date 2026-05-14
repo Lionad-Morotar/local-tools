@@ -68,3 +68,6 @@
 [submodule "syncs/compound-engineering-plugin-cn"]
 	path = syncs/compound-engineering-plugin-cn
 	url = git@github.com:Lionad-Morotar/compound-engineering-plugin-cn.git
+[submodule "local-link/skills/find-source-skills"]
+	path = local-link/skills/find-source-skills
+	url = https://github.com/Lionad-Morotar/find-source-skills.git
