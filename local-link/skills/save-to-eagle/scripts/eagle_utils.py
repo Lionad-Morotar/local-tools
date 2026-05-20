@@ -6,6 +6,7 @@ import json
 import random
 import string
 import shutil
+import time
 import requests
 from pathlib import Path
 from datetime import datetime
@@ -290,7 +291,9 @@ def rebuild_mtime_index():
                 mtime_data[asset_id] = int(stat.st_mtime * 1000)
 
     mtime_path = LIBRARY_ROOT / 'mtime.json'
-    temp = mtime_path.with_suffix('.tmp')
+    # 使用唯一临时文件名避免批量归档时的竞态冲突
+    import os
+    temp = mtime_path.with_suffix(f'.tmp.{os.getpid()}.{int(time.time() * 1000)}')
     temp.write_text(json.dumps(mtime_data, ensure_ascii=False))
     temp.replace(mtime_path)
 
