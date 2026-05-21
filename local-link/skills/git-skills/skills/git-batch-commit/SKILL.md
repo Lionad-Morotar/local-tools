@@ -1,11 +1,12 @@
 ---
-name: git-commit
+name: git-batch-commit
 description: 分批提交 Git 变更的完整工作流。当用户说"提交这个文件"、"帮我 commit"、"分批提交"、"整理提交计划"、"staged 的文件"、"git 提交"时触发
+disable-model-invocation: true
 ---
 
 ## 工作步骤
 
-创建一个 subagent 完成以下步骤
+使用 subagent 完成以下步骤
 
 1. 从用户输入抽取要提交的内容，从如“帮我提交本次修改”，此类上下文推理用户想要提交的文件的路径（可能是多个）为变量 `$files`
 2. 根据文件路径确定仓库位置，目标文件可能在 submodule 中，而非主仓库
