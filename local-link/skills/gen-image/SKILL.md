@@ -1,6 +1,7 @@
 ---
 name: gen-image
 description: 通常在 web-search 没有办法解决用户需求时，调用此技能，创造或生成全新图片。
+disable-model-invocation: true
 ---
 
 ## workflow

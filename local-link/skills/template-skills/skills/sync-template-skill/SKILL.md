@@ -1,6 +1,7 @@
 ---
 name: sync-template-skill
 description: 这是一个技能文件的模板，展示了技能的基本结构和内容组织方式。
+disable-model-invocation: true
 ---
 
 ## 工作步骤

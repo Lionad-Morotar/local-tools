@@ -20,9 +20,11 @@ disable-model-invocation: true
 2. 确保两点
   2.1 A 和 C 内容一致
   2.2 A 是真实文件，C 是 ln -s 或相反（即 C 是真实文件，A 是 ln -s）
-3. 如果不存在 gsd-docs，但存在 `gsd:map-codebase` 技能，使用 Ask 工具询问用户是否派发子代理执行 `gsd:map-codebase` 技能生成设计上下文相关文档
-  3.1 如果用户确认执行技能，技能执行完毕后，禁止 git 提交，应优先把文档内容翻译成中文，再继续执行本技能剩余流程 
-  3.2 如果用户拒绝执行技能，继续执行剩余流程
+3. 如存在 `gsd:map-codebase` 技能，
+  3.1 如果不存在 gsd-docs，询问用户是否派发子代理执行 `gsd:map-codebase` 技能生成设计上下文相关文档
+    3.1.1 如果用户确认执行技能，技能执行完毕后，禁止 git 提交，应优先把文档内容翻译成中文，再继续执行本技能剩余流程 
+    3.1.2 如果用户拒绝执行技能，继续执行剩余流程
+  3.2 如果存在 gsd-docs，询问用户是否派发子代理执行 `/gsd-docs-update --verify-only` 更新设计上下文
 4. 如果不存在设计上下文，如有则使用 Ask 询问是否执行 `teach-impeccable` 技能
 5. 如有则使用 Ask 询问是否执行 `setup-matt-pocock-skills` 技能
 6. 不要提交，除非用户明确要求

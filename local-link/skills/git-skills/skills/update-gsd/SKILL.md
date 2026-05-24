@@ -1,6 +1,7 @@
 ---
 name: update-gsd
 description: Automatically update GSD codebase documentation when code changes are detected. Use this skill when working with GSD projects to keep .planning/codebase/*.md documentation synchronized with actual code changes. This skill monitors git operations (commit, rebase, cherry-pick) and triggers documentation updates after a 10-minute cooldown period.
+disable-model-invocation: true
 ---
 
 自动更新 GSD（Goal-Space-Direction）项目中的代码库文档。当检测到代码变更时，在冷却期后自动触发文档更新。

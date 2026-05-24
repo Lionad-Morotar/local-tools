@@ -1,6 +1,7 @@
 ---
 name: create-skill-project
 description: 创建新的 Claude Skill 项目，初始化 GitHub 仓库、本地 submodule 和软链接。用于将现有 skill 或新 skill 按照标准项目结构组织，支持 Git 版本管理和本地开发。使用场景：(1) 创建新的 skill 项目并推送到 GitHub (2) 将现有 skill 重构为标准项目结构 (3) 初始化 submodule 和软链接以便本地开发。
+disable-model-invocation: true
 ---
 
 # Create Skill

@@ -8,6 +8,7 @@ description: |
   2. 页面无响应或卡死（可能是死循环）
   3. 需要快速定位引入问题的具体 commit
   4. 需要排除缓存、配置等干扰因素
+disable-model-invocation: true
 ---
 
 # Debug by Commits

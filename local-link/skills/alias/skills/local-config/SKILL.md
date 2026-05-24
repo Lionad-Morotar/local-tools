@@ -1,6 +1,7 @@
 ---
 name: local-config
 description: 修改我的本地应用配置
+disable-model-invocation: true
 ---
 
 ## Context

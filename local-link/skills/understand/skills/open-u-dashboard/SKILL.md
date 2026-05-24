@@ -2,6 +2,7 @@
 name: open-u-dashboard
 description: open understand dashboard for user
 
+disable-model-invocation: true
 ---
 
 ## workflow

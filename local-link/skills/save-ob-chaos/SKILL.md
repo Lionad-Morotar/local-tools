@@ -1,6 +1,7 @@
 ---
 name: save-ob-chaos
 description: 将对话内容快速存档到 Obsidian Chaos 文件夹。触发词："存档到 Obsidian"、"保存到 Chaos"、"ob 存档"、"记下这个"、"保存这段内容"、"存到 chaos"。
+disable-model-invocation: true
 ---
 
 将重要内容存档到我的 Obsidian 文档归档处。

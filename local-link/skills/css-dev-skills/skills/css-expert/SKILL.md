@@ -10,6 +10,7 @@ license: MIT
 metadata:
   author: css-dev
   version: "1.0"
+disable-model-invocation: true
 ---
 
 # css.dev — Expert CSS Guidance

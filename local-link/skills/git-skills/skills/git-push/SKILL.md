@@ -1,6 +1,7 @@
 ---
 name: git-push
 description: 代码质量门禁与智能推送助手。核心能力：在 git push 前自动运行项目配置的代码质量检查（test、lint、format、check-types），检测到问题时尝试自动修复，修复成功后继续推送。使用场景：(1) 用户说 "push"、"推送"、"提交到远程" (2) 用户想确保代码质量后再推送 (3) 用户遇到 lint/format 错误需要修复后推送 (4) 作为 pre-push 质量门禁。始终遵循"检测 → 修复 → 再检测 → 推送"的循环，直到代码通过检查或无法自动修复。
+disable-model-invocation: true
 ---
 
 ## 使用方式：子代理模式
