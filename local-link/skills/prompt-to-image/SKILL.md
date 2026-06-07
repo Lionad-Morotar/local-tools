@@ -2,7 +2,6 @@
 name: prompt-to-image
 description: 从上下文提取提示词，为用户生成并打开图片。
 argument-hint: "[--model <gpt-image-2|gemini-3-pro-image-preview>]"
-disable-model-invocation: true
 ---
 
 **Flags:**

@@ -1,7 +1,6 @@
 ---
 name: lionad-deep-research
 description: a deep-research skill wrapper
-disable-model-invocation: true
 ---
 
 ## Workflow
