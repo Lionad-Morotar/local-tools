@@ -1,11 +1,23 @@
 ---
 name: prompt-to-image
 description: 从上下文提取提示词，为用户生成并打开图片。
-argument-hint: "[--model <gpt-image-2|gemini-3-pro-image-preview>]"
+argument-hint: "[--model <gpt-image-2-all|gpt-image-2|gemini-3-pro-image-preview>]"
 ---
 
 **Flags:**
-- `--model` — 指定生成图片的模型。可选值：`gpt-image-2`（默认）、`gemini-3-pro-image-preview`。省略时默认使用 GPT Image。
+- `--model` — 指定生成图片的模型。可选值：`gpt-image-2-all`（默认优先路径）、`gpt-image-2`、`gemini-3-pro-image-preview`。省略时默认使用 `gpt-image-2-all`。
+
+## 优先路径
+
+经过实际验证的调用路径如下：
+
+| 场景 | 推荐模型 | API 端点 | 原因 |
+|---|---|---|---|
+| 默认/用户未指定 | `gpt-image-2-all` | `/v1/images/generations` (dall-e-3 格式) | 已通过验证，约 50 秒返回，稳定性优于直接走 `image-generation` 端点的 `gpt-image-2` |
+| 用户明确要求 `gpt-image-2` | `gpt-image-2-all` | `/v1/images/generations` (dall-e-3 格式) | 同模型家族兼容替代，`gpt-image-2` 直接调用反复出现 60 秒连接被关闭 |
+| 用户明确要求 Gemini | `gemini-3-pro-image-preview` | `/v1beta/models/{model}:generateContent` | 按 Gemini 原生格式调用 |
+
+**重要约束**：除非得到用户明确确认，不得擅自切换到其他异构模型（如 `qwen-image-max`、`doubao-seedream`、`flux` 等）。优先在同一模型家族内寻找兼容替代（如 `gpt-image-2` → `gpt-image-2-all`）。可用模型清单见 [References](./references/2026-06-11-grsapi-models.json)。
 
 ## 工作流程
 
@@ -52,18 +64,20 @@ processed_prompt=$(echo "$raw_prompt" | tr '\n' ' ' | sed 's/"/\\"/g')
 
 ### 3. 解析模型参数
 
-**模型检测**：根据用户输入中的关键词确定模型和 API 调用方式。
+**模型检测**：根据用户输入中的关键词确定模型和 API 调用方式。默认优先走 `gpt-image-2-all` 的 dall-e-3 端点。
 
-| 关键词 | 模型名称 | API 类型 |
-|--------|----------|----------|
-| (默认，无关键词) | `gpt-image-2` | GPT Image |
-| `gemini`, `gemini-3-pro`, `gemini-3` | `gemini-3-pro-image-preview` | Gemini |
+| 关键词 | 模型名称 | API 类型 | 端点 |
+|--------|----------|----------|------|
+| (默认，无关键词) | `gpt-image-2-all` | GPT Image (dall-e-3 格式) | `/v1/images/generations` |
+| `gpt-image-2` | `gpt-image-2-all` | GPT Image (dall-e-3 格式) | `/v1/images/generations` |
+| `gemini`, `gemini-3-pro`, `gemini-3` | `gemini-3-pro-image-preview` | Gemini | `/v1beta/models/{model}:generateContent` |
 
 **使用示例**：
-- `/prompt-to-image` → 默认使用 gpt-image-2
-- `/prompt-to-image 用 gemini-3-pro 生成` → 使用 gemini-3-pro-image-preview
+- `/prompt-to-image` → 默认使用 `gpt-image-2-all`
+- `/prompt-to-image 用 gpt-image-2 生成` → 实际使用 `gpt-image-2-all`（同家族兼容）
+- `/prompt-to-image 用 gemini-3-pro 生成` → 使用 `gemini-3-pro-image-preview`
 
-- 用户也可指定其他 Gemini 系列模型："用 gemini-2.0-flash-exp 生成图片"
+- 用户也可指定其他 Gemini 系列模型："用 gemini-2.0-flash-exp 生成图片"，但 **必须先经用户确认**，不得擅自切换。
 
 ### 4. 读取 API 密钥并调用 API（必须在同一脚本中）
 
@@ -135,16 +149,16 @@ if [[ "$MODEL_NAME" == "gemini-3-pro-image-preview" ]]; then
       }
     }" > "$RESPONSE_FILE"
 else
-  # GPT Image API (默认)
+  # GPT Image API (默认，使用 gpt-image-2-all 走 dall-e-3 端点)
   curl -s --location --request POST \
     "https://grsapi.xyz/v1/images/generations" \
     --header 'Accept: application/json' \
     --header "Authorization: Bearer $API_KEY" \
     --header 'Content-Type: application/json' \
     --data-raw "{
-      \"size\": \"1920x1080\",
+      \"size\": \"1792x1024\",
       \"prompt\": \"$processed_prompt\",
-      \"model\": \"gpt-image-2\",
+      \"model\": \"gpt-image-2-all\",
       \"n\": 1
     }" > "$RESPONSE_FILE"
 fi
@@ -287,11 +301,12 @@ fi
 1. 提示词禁止转写: 用户提供的提示词必须原样使用，禁止简化、禁止改写、禁止用模板包裹（如"Generate an image of..."），仅允许进行 JSON 字符转义
 2. 密钥与 API 调用同上下文: 加载 API 密钥和调用 API 必须在同一个 shell 脚本/代码块中执行，确保 `$API_KEY` 环境变量在 API 调用时可用
 3. 尽早失败: API 请求失败时（包括配额耗尽、渠道不可用等），立即停止并报告错误，不尝试备用模型或重试
-4. 预处理优先: 在调用 API 前必须对提示词进行预处理，避免 JSON 解析错误
-5. 使用 `-s` 静默模式: curl 必须加 `-s` 参数，确保输出纯净 JSON
-6. 验证后再处理: 保存响应后立即验证 JSON 有效性
-7. 文件同步等待: 打开图片前必须确保文件完全写入磁盘，避免加载失败
-8. 路径安全: 在脚本中始终使用 `${HOME}` 替代 `~`，确保路径在所有 shell 上下文中正确展开
+4. **模型选择需经用户确认**: 默认使用 `gpt-image-2-all`。若用户指定 `gpt-image-2`，可在同家族内 fallback 到 `gpt-image-2-all`。严禁因"某个模型可能更好"而擅自切换到 `qwen-image-max`、`doubao-seedream`、`flux`、`grok` 等异构模型；任何跨家族切换必须先得到用户明确确认
+5. 预处理优先: 在调用 API 前必须对提示词进行预处理，避免 JSON 解析错误
+6. 使用 `-s` 静默模式: curl 必须加 `-s` 参数，确保输出纯净 JSON
+7. 验证后再处理: 保存响应后立即验证 JSON 有效性
+8. 文件同步等待: 打开图片前必须确保文件完全写入磁盘，避免加载失败
+9. 路径安全: 在脚本中始终使用 `${HOME}` 替代 `~`，确保路径在所有 shell 上下文中正确展开
 
 ## 资源
 
@@ -343,3 +358,12 @@ FILE_PATH="${FILE_PATH/#\~/$HOME}"
 返回值:
 - `0` - 文件就绪
 - `1` - 超时或错误
+
+## References
+
+### 图像模型索引
+
+- **`references/2026-06-11-grsapi-image-models.md`** — grsapi.xyz 图像生成模型速查表，包含 46 个图像模型的 ID、支持端点、标签和描述。
+- **`references/2026-06-11-grsapi-models.json`** — `/v1/models` 完整原始响应（493 个模型）。
+
+> **使用约束**：References 仅用于查询和用户确认后的模型选择。未经用户明确同意，不得擅自切换模型。默认优先路径始终是 `gpt-image-2-all`。
