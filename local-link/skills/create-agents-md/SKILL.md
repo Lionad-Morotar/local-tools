@@ -27,14 +27,16 @@ disable-model-invocation: true
   3.2 如果存在 gsd-docs，询问用户是否派发子代理执行 `/gsd-docs-update --verify-only` 更新设计上下文
 4. 如果不存在设计上下文，如有则使用 Ask 询问是否执行 `teach-impeccable` 技能
 5. 如有则使用 Ask 询问是否执行 `setup-matt-pocock-skills` 技能
-6. 不要提交，除非用户明确要求
+  5.1 仅包含 `Domain Docs` 部分和文档即可，无需 `Issue tracker`、`Triage Labels` 的描述以及文档（`docs/agents/xxx`）
+6. 如有则用 Ask 询问是否执行 `/learn-codebase` 技能
+7. 撰写提交计划，使用 Ask 向用户确认用户是否提交
 
 ## Agents.md 模版
 
 ```markdown
-# AGENTS.md
+# Agents.md
 
-{项目简介: 如从 package.json description 提取这是xxx项目}。
+{项目简介}。
 
 * 现实层你有无限时间和资源，不要因上下文压缩简化任务执行
 
@@ -45,7 +47,7 @@ disable-model-invocation: true
 | [<name>](<path>)               | <description> |
 <!-- 根据不同情况添加文档资源，见下文 -->
 
-更新文档时优先更新到 `.planning/codebase/`。
+你可以自行读取项目上下文文档，更新时也优先更新相关文档。
 
 ```
 
@@ -67,7 +69,7 @@ disable-model-invocation: true
 | [CONCERNS.md](./.planning/codebase/CONCERNS.md)         | 技术债务、注意事项         |
 ```
 
-* 如果项目存在设计上下文（或刚刚生成），文档可这样补充：
+* 如果项目存在设计上下文（或刚刚生成如 `<project-root>/.impeccable.md`），文档可这样补充：
 
 ```markdown
 | 文档                                                    | 说明                       |
@@ -77,4 +79,4 @@ disable-model-invocation: true
 
 ## 模版要求
 
-* 你应当使用简单直接的资源名，如 `[.planning/codebase/STACK.md](./.planning/codebase/STACK.md)` 就过于冗长不如 `[STACK.md](./.planning/codebase/STACK.md)`
+* 使用简单直接的资源名，比如 `[.planning/codebase/STACK.md](./.planning/codebase/STACK.md)` 过于冗长，就不如 `[STACK.md](./.planning/codebase/STACK.md)`
