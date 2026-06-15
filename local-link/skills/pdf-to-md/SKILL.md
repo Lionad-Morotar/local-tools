@@ -1,161 +1,93 @@
 ---
 name: pdf-to-md
-description: 将版式紧凑的中文技术手册（SDK / 密码设备 / API 文档）从 PDF 转为结构清晰的 Markdown。当用户要求转换 PDF、提取 PDF 内容、或遇到表格列粘连时触发。
+description: 用 MinerU(opendatalab/MinerU,Apache 2.0)把 PDF / 图片 / DOCX / PPTX / XLSX 转成结构清晰的 Markdown。当用户要"PDF 转 Markdown / md"、"提取 PDF 内容"、"整理这份文档/手册"、"把扫描件转成可读文本",或抱怨 PDF 表格列粘连、函数字段被拆散、扫描件难读时触发。自动处理表格→HTML、公式→LaTeX、跨页合并、页眉页脚去除、多语言 OCR,默认用最高精度的 hybrid 后端。遇到任何"把这份 PDF/文档弄成 Markdown"的请求都用它,即使用户没点名 MinerU。
 ---
 
 # pdf-to-md
 
-把 PDF 技术手册转成干净 Markdown，核心是解决紧凑表格列粘连和函数字段被拆散的问题。
+用 [MinerU](https://github.com/opendatalab/MinerU) 把版式文档转成结构化 Markdown。MinerU 用版面理解模型自动处理表格、公式、跨页、阅读顺序,**不要手写坐标解析**——那是对付表格列粘连的旧办法,MinerU 已从模型层面解决。
 
-## 触发条件
+## 参数(按场景选,默认最高精度)
 
-- 用户要求 PDF 转 Markdown / md、提取 PDF 内容、整理 PDF
-- PDF 是中英文技术手册，含有大量固定列表格（算法、错误码、证书项、设备信息等）
-- `pdftotext -layout` 输出后列粘连、表格无法直接按空格拆分
-
-## 核心原则
-
-1. **整个转换流程由 Python + pdfplumber 驱动，不要先调 pdftotext 再拆分空格。**
-2. **表格必须按视觉列重建。** 不能依赖字符串里的空白，因为紧凑列 PDF 的空格会被吃掉。
-3. **函数详情必须按字段聚合。** 功能 / 原型 / 参数 / 返回值 / 备注 各放一行，不能拆成独立 Markdown 标题。
-4. **输出后必须自检表格列数和字段格式。**
-5. 输出用中文，保留原意，不添加解释。
-
-## 完整流程
-
-用一段 Python 脚本完成全部转换。
-
-### 1. 准备
-
-```python
-import pdfplumber, re, json
-from collections import defaultdict
-from pathlib import Path
-
-PDF_PATH = Path("input.pdf")
-OUT_PATH = PDF_PATH.with_suffix(".md")
-
-SECTION_HEADINGS = {...}   # 从 PDF 目录提取的章节标题集合
-FIELD_LABELS = {"功能", "函数", "原型", "参数", "返回", "返回值", "值", "备注"}
-
-def rows_of(page):
-    """返回页面中按 top 排序、每行内部按 x0 排序的 word 列表。"""
-    words = page.extract_words()
-    y_groups = defaultdict(list)
-    for w in words:
-        y_groups[round(float(w["top"]))].append(w)
-    out = []
-    for y in sorted(y_groups):
-        if y < 55 or y > 780:
-            continue
-        ws = sorted(y_groups[y], key=lambda w: float(w["x0"]))
-        out.append({"y": y, "words": ws, "text": "".join(w["text"] for w in ws)})
-    return out
-
-def row_columns(ws, boundaries):
-    """根据列边界 boundaries（升序 x 坐标列表）把 word 列表分成若干列。"""
-    cols = [[] for _ in range(len(boundaries) + 1)]
-    for w in ws:
-        x = float(w["x0"])
-        idx = sum(1 for b in boundaries if x > b)
-        cols[idx].append(w["text"])
-    return ["".join(c).strip() for c in cols]
-```
-
-### 2. 章节识别
-
-章节标题特征：
-
-- 左对齐，x0 约在 60-120 之间
-- 完全匹配已知章节标题集合
-
-函数名标题也以 SOF_ 开头且左对齐，用正则区分。
-
-维护 `SECTION_HEADINGS` 集合，扫描时如果一行 `text.strip() in SECTION_HEADINGS` 且第一个 word 的 `x0 < 120`，判定为新章节开始。
-
-### 3. 函数列表表格
-
-函数列表是跨页的多行两列表格，结构为：函数名（左列 x0 ~ 80-130）、功能描述（右列 x0 ~ 280）。
-
-处理步骤：
-
-1. 扫描所有页，收集所有满足 `x0 < 200` 且文本匹配 `^SOF_[A-Za-z0-9_]+$` 的词。
-2. 同一行中，把 `x0 >= 200` 的词拼接成“功能描述”。
-3. 如果一行的功能描述为空，不要把它合并到上一行或下一行；保持为空单元格。
-4. 输出 Markdown 表格：
-
-```markdown
-| 函数接口 | 功能描述 | 备注 |
+| 参数 | 默认 | 何时换 |
 |---|---|---|
-| SOF_GetLastError | 获取错误值 | |
+| 后端 `-b` | `hybrid-auto-engine`(精度 95+,最高) | 追求速度或低配机器用 `pipeline`(纯 CPU 可跑,精度 85+) |
+| 语言 `-l` | `auto` | 中文文档 `ch`、英文 `en` 可提 OCR 准确率 |
+| 后处理 | 开(标题修复) | 输出已满意可跳过 |
+
+默认 hybrid 的理由:精度最高且**字符最准**(实测 API 文档 0 字符错误,而 pipeline 有 I/l 类混淆),代价是慢一些、模型 2-3GB。一次性转换优先精度,慢一点无所谓。
+
+## 流程
+
+### 1. 确保 MinerU 可用
+
+```bash
+command -v mineru || uv pip install -U "mineru[all]" --system -i https://mirrors.aliyun.com/pypi/simple
 ```
 
-### 4. 函数详情字段
+- 中国大陆**必设模型源**,否则首次下模型卡 huggingface:
+  ```bash
+  export MINERU_MODEL_SOURCE=modelscope
+  ```
+- macOS 不支持 Docker 部署,只能 pip/uv。Apple Silicon 跑 hybrid 时自动用 mlx-engine(原生加速)。
 
-每个函数固定字段：**功能、原型、参数、返回值、备注**。
+### 2. 转换
 
-识别字段标签：
-
-- 标签在行的左侧，第一个 word 的 `x0 < 110`
-- 标签文本属于 `FIELD_LABELS`
-- 标签后的内容（同一行中 x0 >= 110 的部分）作为字段起始
-- 后续没有新标签的行追加到当前字段
-
-标签合并规则：
-
-- `函数`、`原型` 合并为 **原型**
-- `返回`、`值`、`返回值` 合并为 **返回值**
-
-强制输出格式：
-
-```markdown
-#### SOF_Xxx
-
-- **功能**：...
-- **原型**：...
-- **参数**：...
-- **返回值**：...
-- **备注**：...
+```bash
+export MINERU_MODEL_SOURCE=modelscope
+mineru -p <输入文件或目录> -o <输出目录> -b hybrid-auto-engine -l auto
 ```
 
-**关键约束**：
+- 输入支持单文件或整个目录(批量)
+- 首次运行下载模型(hybrid 2-3GB / pipeline 1-2GB),之后走缓存,再次转换很快
+- 中文技术手册加 `-l ch`,英文报告加 `-l en`
 
-- 不能把标签文本本身输出成 Markdown 标题
-- 如果一个函数的内容全部涌到“功能”字段里，说明列边界或字段检测失败，必须人工校正并拆成五个字段
-- 字段为空时直接省略该行
+### 3. 后处理(修复标题误判)
 
-### 5. 表格（算法、证书项、设备信息、错误码）
+MinerU 把 PDF 里所有"大字号"元素映射为标题,可能把数据点(纯数字)、人名、强调句误判为标题。转完跑本技能目录下的修复脚本:
 
-这些表格有共同特征：表头行 + 固定列数。
+```bash
+node <skill-dir>/scripts/postprocess-headings.mjs <输出.md>
+```
 
-优先用 `pdfplumber.page.extract_tables()`。如果列数不对或出现错位空行，改用坐标法：
+脚本把假标题降级为加粗段落,打印保留/降级统计供你确认。
 
-1. 取出该页所有 word，按 `top` 分组得到行。
-2. 通过观察该表格各列文字块的 x0 分布，确定列边界。
-3. 对每一行，根据边界把 word 分到对应列。
-4. 删除“描述列内容为空、其它列也为空”的无效行。
-5. 输出标准 Markdown 表格，并补齐表头分隔线。
+### 4. 质检
 
-如果坐标法仍无法对齐，**打开 PDF 对照手工写 Markdown 表格**。不要输出列粘连或列数不一致的表格。
+输出目录里的 `_layout.pdf` 是版面可视化(原图叠加检测框),肉眼对照能快速发现表格/区块识别错误。**版面复杂的文档务必抽查**。
 
-### 6. 普通段落
+## 输出结构
 
-非表格、非函数说明的段落按行合并，删除段首缩进，保留空行分隔段落。
+```
+<output>/<backend>/<docname>/
+├── <docname>.md                 # 主产物
+├── <docname>_content_list.json  # 阅读顺序 JSON,程序消费友好
+├── <docname>_middle.json        # 每个区块带 bbox 的中间格式
+├── <docname>_layout.pdf         # 版面可视化(质检用)
+└── images/                      # 抽取的图片
+```
 
-### 7. 输出清理与自检
+## 能力边界
 
-清理：
+记住这条以设定正确预期——MinerU 是优秀的**元素提取器**,但对**版面语义**理解有限:
 
-- 删除页眉/页脚
-- 合并连续空行为单个空行
-- 保持层级：`#` 手册标题、`##` 一级章节、`###` 二级章节、`####` 函数名
+- ✅ **结构化技术文档**(API 手册、规范、标准、论文):表格、字段、公式、阅读顺序几乎完美
+- ⚠️ **设计驱动的营销文档**(年报、ESG、宣传册、杂志):元素都能提取,但多栏对比的阅读顺序、大字号非标题元素需后处理(跑标题修复脚本 + 人工校阅读顺序)
 
-自检（必须执行）：
+转完用 `_layout.pdf` 抽查,尤其版面复杂的文档。
 
-- 每个 Markdown 表格中，每行 `|` 数量必须相同。如果不同，重建该表格。
-- 函数详情中，如果一个函数只出现 `- **功能**：...` 且里面塞了原型/参数/返回值，说明字段拆分失败，必须手工拆成五个字段。
-- 检查关键章节是否遗漏：产品概述、龙脉国密KEY、操作系统支持、浏览器支持、注意、证书综合应用插件支持的函数、证书综合应用插件接口说明、龙脉国密KEY支持的算法描述、证书解析项标识、设备信息标示符、错误码及宏定义、常见问题、联系我们。
+## 常用参数速查
+
+```bash
+mineru -p <in> -o <out> -b hybrid-auto-engine \
+  -l ch \          # 语言 ch/en/auto
+  -s 0 -e 5 \      # 只转第 0-5 页(从 0 开始)
+  -f true -t true  # 公式/表格解析开关(默认开)
+```
 
 ## 失败回退
 
-如果脚本无法还原表格或函数详情，直接在 Markdown 中按 PDF 视觉结构手写正确表格，而不是输出格式混乱的内容。
+- **hybrid 跑不动**(无 Apple Silicon / 超时 / 内存不足):降级 `-b pipeline`
+- **模型下载失败**:确认 `MINERU_MODEL_SOURCE=modelscope` 已设
+- **标题/表格仍有问题**:跑后处理脚本 + 对照 `_layout.pdf` 人工修
+- **生产环境锁定版本**:`uv pip install "mineru[all]==3.3.1"`(MinerU 迭代快,CLI 可能变)
