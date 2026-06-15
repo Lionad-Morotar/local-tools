@@ -1,7 +1,6 @@
 ---
 name: recognize-codebase-branch-flow
 description: 识别并记忆项目 git 分支模型
-disable-model-invocation: true
 ---
 
 将项目信息持久化到本地 SQLite 数据库，用于后续快速查询和分析。
