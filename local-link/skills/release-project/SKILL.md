@@ -1,6 +1,6 @@
 ---
 name: release-project
-description: 项目版本发布流程指导，帮助用户完成版本规划、Changelog 管理、版本号升级、Git 标签创建和 npm 首次发布准备。Use when: (1) 用户需要发布新版本 (2) 需要创建版本发布流程 (3) 需要管理版本号和 Changelog (4) 需要自动化版本发布 (5) 需要检查 release 分支同步 (6) 首次 npm 发布准备
+description: 项目版本发布流程指导，帮助用户完成版本规划、Changelog 管理、版本号升级、Git 标签创建和 npm 首次发布准备。Use when: (1) 用户需要发布新版本 (2) 需要创建版本发布流程 (3) 需要管理版本号和 Changelog (4) 需要自动化版本发布 (5) 需要识别分支模型并确保发版分支同步 (6) 首次 npm 发布准备
 ---
 
 # Release Project
@@ -11,15 +11,15 @@ description: 项目版本发布流程指导，帮助用户完成版本规划、C
 
 - 当前仓库使用 Git 进行版本控制
 - 项目配置了 `package.json`（Node.js 项目）或相应的版本管理文件
-- 具有 release 分支作为发布分支
+- 分支模型可识别（第 1 步调用 `recognize-codebase-branch-flow` 技能自动判定 trunk-based 或 release-branch）
 
 ## 工作流程
 
 ```
 ┌─────────────────┐
 │  0. 分支检查     │
-│  (确保release    │
-│   分支最新)      │
+│  (识别分支模型,  │
+│   确保发版分支)  │
 └────────┬────────┘
          ▼
 ┌─────────────────┐
@@ -54,44 +54,69 @@ description: 项目版本发布流程指导，帮助用户完成版本规划、C
 
 ## 1. 分支检查
 
-**目标**：确保当前位于 `release` 分支，且代码与开发分支保持同步。
+**目标**：识别项目分支模型，据此选择发版路径，并确保发版分支干净且与远程同步。
 
-### 检查步骤
+### 1.1 识别分支模型
 
-1. **检查当前分支**：
+自动调用 `recognize-codebase-branch-flow` 技能分析当前项目分支模型，获取其 `branch_model` 判定：
+
+**明确映射**（直接走对应路径，无需询问）：
+
+| recognize 输出 | 发版路径 |
+|---------------|---------|
+| `github flow` | Trunk-based（main 直接打 tag） |
+| `gitflow` | Release-branch（develop → release → main） |
+
+**模糊映射**（`gitlab flow` / `无显著模型` / `自建模式`）或 recognize 调用失败：自动执行轻量探测——
+1. 检测长期 `release`/`develop` 分支：`git branch -a --list '*release*' '*develop*'`
+2. 检测最近 tag 落在哪个分支：`git tag -l 'v*' --sort=-v:refname | head -1` → `git branch --contains <tag>`
+3. tag 位置优先于分支名（tag 反映真实发版行为，分支名可能误导）
+
+探测有定论则自动选路径；探测仍无定论才询问用户。
+
+### 1.2 Trunk-based 路径（github flow 等）
+
+主分支（main/master）直接打 tag 发版：
+
+1. **确认在主分支**：
    ```bash
    git branch --show-current
    ```
-   - 如果不在 `release` 分支，切换到 release 分支：`git checkout release`
+   不在主分支则 `git checkout main`
+
+2. **拉取最新（仅快进）**：
+   ```bash
+   git pull --ff-only origin main
+   ```
+
+3. **验证工作区干净**：`git status`，确保无未提交变更
+
+### 1.3 Release-branch 路径（gitflow 等）
+
+有长期 release 分支用于发版准备：
+
+1. **检查当前分支**：`git branch --show-current`，不在 release 则 `git checkout release`
 
 2. **确保 release 分支最新**：
 
-   **情况 A：用户在其他分支开发（如 develop/feature）**
+   **情况 A：开发在 develop/feature 分支**
    ```bash
-   # 获取最新代码
    git fetch origin
-
-   # 将开发分支合并到 release（假设开发分支是 develop）
    git merge origin/develop --no-ff -m "chore: merge develop into release"
    ```
 
-   **情况 B：用户已在 release 分支开发**
+   **情况 B：已在 release 分支开发**
    ```bash
-   # 只需拉取最新代码
    git pull origin release
    ```
 
-3. **验证工作区干净**：
-   ```bash
-   git status
-   ```
-   - 确保没有未提交的变更
-   - 如有变更，提交或暂存后再继续
+3. **验证工作区干净**：`git status`，确保无未提交变更
 
-### 分支同步决策
+### 1.4 分支同步决策
 
-使用 Ask 工具询问用户：
-- "当前开发是否在 develop/feature 分支？如果是，我需要将最新代码合并到 release 分支。"
+仅当 1.1 映射结果需要询问时，使用 Ask 工具确认：
+- "检测到分支模型为 `X`，应走 [Trunk-based/Release-branch] 路径，是否正确？"
+- "当前开发是否在 develop/feature 分支？需要合并到 release 吗？"
 - "是否需要创建 release 分支？（如果不存在）"
 
 ## 2. 版本规划
@@ -334,8 +359,9 @@ git tag -l "v*" | wc -l
 ## 发布检查清单
 
 ### 分支与同步
-- [ ] 当前位于 `release` 分支
-- [ ] release 分支已同步最新代码（来自 develop/main）
+- [ ] 分支模型已识别（trunk-based / release-branch）
+- [ ] 发版分支已确认（trunk-based: main / release-branch: release 分支）
+- [ ] 发版分支已与远程同步
 - [ ] 工作区干净（无未提交变更）
 
 ### 版本与文档
@@ -345,7 +371,8 @@ git tag -l "v*" | wc -l
 - [ ] 日期格式正确（ISO 8601）
 
 ### 验证与构建
-- [ ] 测试通过
+- [ ] unit 测试通过（快速逻辑验证，发包前必跑，如 `prepublishOnly` 钩子或 `test:unit`）
+- [ ] integration/e2e 测试通过（端到端验证，push 前或 CI 跑，如 `test:e2e`）
 - [ ] 构建成功
 - [ ] 版本号已正确升级
 
