@@ -9,7 +9,7 @@ disable-model-invocation: true
 * 严格按照流程执行，如果碰到以下阻塞按照清单解决问题：
   * 进入了计划模式，生成了计划并等待我确认：你应当自动确认计划（注意，并非不做计划！而是先计划然后自动确认）
   * 有决策需要我确认：我的回答永远是 “u decide”
-* **务必按照要求读取执行对应技能**：即 `~/.cs/<skill-name>/SKILL.md`
+* **务必按照要求读取执行对应技能**：即 `~/.claude/skills/<skill-name>/SKILL.md`
 
 ## Workflow
 
