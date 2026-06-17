@@ -7,14 +7,14 @@ description: 识别并记忆项目 git 分支模型
 
 ## 数据库
 
-- 路径：`./db/branches.sqlite3`
-- 初始化标记：`./db/inited.lock`
+- 路径：`~/.db/branches.sqlite3`
+- 初始化标记：`~/.db/inited.lock`
 
 ## Workflow
 
 ### 1. 初始化（首次使用）
 
-检查 `./db/inited.lock` 是否存在。不存在时：
+检查 `~/.db/inited.lock` 是否存在。不存在时：
 - 创建 SQLite 数据库
 - 执行建表语句：
   ```sql
@@ -30,7 +30,7 @@ description: 识别并记忆项目 git 分支模型
     hash TEXT NOT NULL
   );
   ```
-- 写入 `./db/inited.lock`
+- 写入 `~/.db/inited.lock`
 
 ### 2. 检查缓存
 
