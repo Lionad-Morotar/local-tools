@@ -387,3 +387,7 @@ git tag -l "v*" | wc -l
 - [ ] publishConfig 已配置（registry、access）
 - [ ] 发布准备已提交（`chore: release prepare`）
 - [ ] 已通过 `npm publish --dry-run` 验证
+
+## References
+
+- [Claude Code 插件版本号同步](./references/cc-plugin-version.md) — 处理 package.json、plugin.json、marketplace.json 与文档之间的版本号一致性问题
