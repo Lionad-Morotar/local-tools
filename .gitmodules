@@ -31,9 +31,6 @@
 [submodule "ai-research-skills-cn"]
 	path = local-link/skills-backup/ai-research-skills
 	url = git@github.com:Lionad-Morotar/AI-Research-SKILLs-cn.git
-[submodule "packages/kimi-search"]
-	path = packages/kimi-search
-	url = git@github.com:Lionad-Morotar/kimi-search.git
 [submodule "local-link/skills/bilibili-skills"]
 	path = local-link/skills/bilibili-skills
 	url = https://github.com/Lionad-Morotar/bilibili-skills.git
