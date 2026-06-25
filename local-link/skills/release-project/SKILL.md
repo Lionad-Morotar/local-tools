@@ -217,6 +217,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [ ] 包含 `[Unreleased]` 区块
 - [ ] 空类别已移除（无内容时不保留标题）
 - [ ] 版本号链接到对比页面（可选）
+- [ ] 所有内容正交：同一功能的新增与后续修复应合并为一条面向价值的条目，避免同一改动拆成多条
+  - 反例：`- 增加交互式 pager` 与 `- 修复 pager footer 渲染异常` 应合并为 `- 为 supports/list 增加交互式 pager`
+- [ ] 非终端用户可见的变更已标记 `[internal]`：维护脚本、CI、内部工具、模式生成等不向最终用户暴露的条目，前缀 `[internal]`
+  - 示例：`- [internal] watch-patterns 重启时通过持久化 hash 缓存避免全量重新上传`
 - [ ] **用户已确认 Changelog 内容**
 
 ## 4. 版本号升级
