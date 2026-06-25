@@ -1,6 +1,7 @@
 ---
 name: image-to-prompt
 description: 将图片或文本描述转换为完整 AI 绘画提示词。当用户想要根据参考图、照片或文字描述生成适用于各种 AI 绘画工具（Midjourney、Stable Diffusion、FLUX、DALL-E 等）的专业提示词时使用。适用于：上传图片并请求生成提示词、将照片转化为特定艺术风格、根据文字描述构建结构化提示词、需要系统化的提示词构建框架。
+argument-hint: <image path or description>
 disable-model-invocation: true
 ---
 

@@ -1,6 +1,7 @@
 ---
 name: get-secrets
 description: 从用户给出的文档片段中，提取"进阶必知"的深层知识，当用户提到"太简单了，给我几条秘密"，"面试必备的那种"，"八股文进阶"时触发
+argument-hint: <document snippet>
 ---
 
 ## Workflow

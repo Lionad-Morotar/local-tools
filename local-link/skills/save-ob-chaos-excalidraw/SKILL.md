@@ -1,6 +1,7 @@
 ---
 name: save-ob-chaos-excalidraw
 description: 绘制 Excalidraw 图表并存档到 Obsidian Chaos 文件夹。触发词："画个图存到 Obsidian"、"excalidraw 存档"、"画个流程图保存"、"画图存到 chaos"、"创建图表并存档"、"画架构图到 ob"。
+argument-hint: <diagram description>
 disable-model-invocation: true
 ---
 

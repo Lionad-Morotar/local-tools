@@ -1,6 +1,7 @@
 ---
 name: document-localize
 description: 为 LLM 指令文件中的操作添加本地化标注，让 LLM 使用指定语言输出。适用于任何 prompt/instruction 文件，支持文档写入、Git commit、代码注释等多种操作类型。触发场景：(1) 需要让 LLM 用中文/日语/韩语等输出内容 (2) 批量为指令文件添加语言标注 (3) 本地化现有 prompt 文件。
+argument-hint: <file path> [target language]
 disable-model-invocation: true
 ---
 

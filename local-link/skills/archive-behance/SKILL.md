@@ -1,6 +1,7 @@
 ---
 name: archive-behance
 description: "Archive Behance projects to Eagle DAM (Digital Asset Management) library. Use when user wants to archive or save a Behance project URL to their Eagle collection with proper metadata. Triggers include requests like '归档 https://www.behance.net/gallery/...', '保存 Behance 项目', 'archive behance project', or any request to download or save Behance gallery content to local Eagle library."
+argument-hint: <Behance project URL>
 disable-model-invocation: true
 ---
 

@@ -1,6 +1,7 @@
 ---
 name: move-project
 description: 把项目迁移到新目录，并同步所有按项目绝对路径索引的数据（Claude Code 会话历史、缓存、配置，以及编辑器与工具的路径记录），避免迁移后会话丢失或工具跳错路径。
+argument-hint: <source path> <target path>
 disable-model-invocation: true
 ---
 

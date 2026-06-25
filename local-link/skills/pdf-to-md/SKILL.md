@@ -1,6 +1,7 @@
 ---
 name: pdf-to-md
 description: 用 MinerU(opendatalab/MinerU,Apache 2.0)把 PDF / 图片 / DOCX / PPTX / XLSX 转成结构清晰的 Markdown。当用户要"PDF 转 Markdown / md"、"提取 PDF 内容"、"整理这份文档/手册"、"把扫描件转成可读文本",或抱怨 PDF 表格列粘连、函数字段被拆散、扫描件难读时触发。自动处理表格→HTML、公式→LaTeX、跨页合并、页眉页脚去除、多语言 OCR,默认用最高精度的 hybrid 后端。遇到任何"把这份 PDF/文档弄成 Markdown"的请求都用它,即使用户没点名 MinerU。
+argument-hint: <file path or URL>
 ---
 
 # pdf-to-md

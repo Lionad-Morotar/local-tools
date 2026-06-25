@@ -1,6 +1,7 @@
 ---
 name: save-to-eagle
 description: "归档网络内容到 Eagle 素材库。支持：(1) Behance/Pixiv 图片归档，(2) 网页视频录制（页面动画、滚动录制）。使用方式：'归档 [URL]' 归档图片；'录制网页视频 [URL]' 录制页面动画；'滚动录制 [URL]' 自动滚动截图。支持评分如 '归档 [URL], 3/5'。"
+argument-hint: <URL> [, <rating>]
 disable-model-invocation: true
 ---
 

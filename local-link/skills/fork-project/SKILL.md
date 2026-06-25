@@ -1,6 +1,7 @@
 ---
 name: fork-project
 description: Fork and set up open source projects under Lionad's GitHub account. Use when user wants to create a new project based on an existing repository that is not owned by Lionad. Triggers when git remote origin is not a Lionad repository and user wants to create their own version.
+argument-hint: <repository URL or name>
 disable-model-invocation: true
 ---
 

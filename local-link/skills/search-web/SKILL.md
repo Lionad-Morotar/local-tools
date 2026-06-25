@@ -1,6 +1,7 @@
 ---
 name: search-web
 description: 使用 Evaluator-optimizer 模式进行系统性多轮网络搜索，采用结构化 Ask 流程在搜索前澄清研究目标。基于 YC Office Hours 的提问方法论，确保搜索方向清晰、结果可验证。当用户需要深入调查复杂主题、验证假设或全面收集信息时使用。
+argument-hint: <search query>
 disable-model-invocation: true
 ---
 

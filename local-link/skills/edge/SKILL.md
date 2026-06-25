@@ -1,6 +1,7 @@
 ---
 name: edge
 description: "通过 CDP (Chrome DevTools Protocol) 连接用户的 Edge 浏览器，利用现有的登录会话、Cookie 和保存的密码进行自动化操作。使用场景：(1) 用户希望在 Edge 中使用现有登录状态自动执行任务，(2) 网站需要登录/CAPTCHA 但用户已在 Edge 中解决，(3) 用户明确提到使用 Edge 浏览器，(4) 需要通过使用现有浏览器会话来绕过身份验证。"
+argument-hint: <URL or browser task>
 disable-model-invocation: true
 ---
 

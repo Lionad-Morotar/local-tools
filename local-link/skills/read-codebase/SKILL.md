@@ -1,6 +1,7 @@
 ---
 name: read-codebase
 description: 阅读棕地项目代码库，智能分析代码结构，递归补充其调用链上所有函数的注释。
+argument-hint: <project path>
 disable-model-invocation: true
 ---
 

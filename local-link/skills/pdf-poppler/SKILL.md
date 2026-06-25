@@ -1,6 +1,7 @@
 ---
 name: pdf-poppler
 description: "使用 Poppler 命令行工具处理 PDF：pdftotext 转文本、pdftoppm 转图片、pdfimages 提取图片、pdfinfo 查看元数据、pdftohtml 转 HTML、pdfseparate/pdfunite 拆分合并。用于 PDF 内容提取、格式转换、批量处理等任务。触发词：'提取 PDF 文本'、'PDF 转图片'、'提取 PDF 中的图片'、'查看 PDF 信息'、'拆分 PDF'。"
+argument-hint: <command> <file> [args]
 disable-model-invocation: true
 ---
 

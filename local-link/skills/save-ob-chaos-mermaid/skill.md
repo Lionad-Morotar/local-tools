@@ -1,6 +1,7 @@
 ---
 name: save-ob-chaos-mermaid
 description: 将 Mermaid 图表保存到 Obsidian Chaos 文件夹。触发词："保存 mermaid 到 chaos"、"mermaid 存档"。
+argument-hint: <mermaid code>
 ---
 
 # Save Mermaid to Obsidian Chaos

@@ -10,6 +10,7 @@ description: |
   - 需要将 Tailwind 工具类与 BEM 语义类名结合使用
 
   触发关键词：useBEM、BEM、重构组件、BEM 改造、bem-refactor
+argument-hint: <file or component>
 disable-model-invocation: true
 ---
 
