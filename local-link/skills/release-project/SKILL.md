@@ -1,6 +1,7 @@
 ---
 name: release-project
 description: 项目版本发布流程指导，帮助用户完成版本规划、Changelog 管理、版本号升级、Git 标签创建和 npm 首次发布准备。Use when: (1) 用户需要发布新版本 (2) 需要创建版本发布流程 (3) 需要管理版本号和 Changelog (4) 需要自动化版本发布 (5) 需要识别分支模型并确保发版分支同步 (6) 首次 npm 发布准备
+argument-hint: [--changelog-only]
 ---
 
 # Release Project
@@ -12,6 +13,16 @@ description: 项目版本发布流程指导，帮助用户完成版本规划、C
 - 当前仓库使用 Git 进行版本控制
 - 项目配置了 `package.json`（Node.js 项目）或相应的版本管理文件
 - 分支模型可识别（第 1 步调用 `recognize-codebase-branch-flow` 技能自动判定 trunk-based 或 release-branch）
+
+## Changelog-only 模式
+
+传入 `--changelog-only` 时，仅执行「3. Changelog 整理」中的 `[Unreleased]` 维护，**跳过用户确认、不升级版本号、不打 Git 标签、不推送**，整理完即结束。把“整理变更条目”与“真正发版”解耦，供自动化流程（如 `flow-north-star-loop`）在开发过程中增量沉淀 changelog。
+
+该模式下：
+- 只更新 `## [Unreleased]` 区块（遵循 Keep a Changelog 分类、正交合并、`[internal]` 标记）
+- 自动确认，不暂停询问
+- 不触碰版本号、Git tag、远程推送
+- 完整发版流程（版本号升级、打 tag、test→main 合并、npm 发布）仍由用户**不带**该参数调用本技能完成
 
 ## 工作流程
 
@@ -119,6 +130,27 @@ description: 项目版本发布流程指导，帮助用户完成版本规划、C
 - "当前开发是否在 develop/feature 分支？需要合并到 release 吗？"
 - "是否需要创建 release 分支？（如果不存在）"
 
+### 1.5 Alpha / Prerelease 分支策略
+
+当发布的版本是 prerelease（版本号含 `-`，如 `0.4.0-alpha.2`）时：
+
+- 如果当前分支是 feature / alpha 专用分支（非 `main`/`master`/`release`），**直接在该分支上打 tag 发版，不合并回 main**。
+- 版本号升级、Changelog、Git 提交与标签都在当前分支完成。
+- 推送时使用当前分支：`git push origin <当前分支> --tags`。
+
+只有在发 **stable** 版本时，才需要把变更合并到 `main`（trunk-based）或 `release`（gitflow）后再打 tag。
+
+### 1.6 test 分支合并（flow-north-star-loop 产物）
+
+当项目存在长期 `test` 分支作为自动化开发循环（`flow-north-star-loop`）的集积分支时，发版前需先把 `test` 上已通过 e2e 验证的变更合并到发版分支——这填补 nsl-loop 产出（`test`）与发版（`main` 打 tag）之间的缝隙：
+
+1. **检测 test 分支**：`git branch --list test`
+2. **检测待合并变更**：`git log --oneline <发版分支>..test`（若含 `feat/nsl-epic/*` 章鱼合并痕迹，确认是 nsl 产物）
+3. **合并**：
+   - trunk-based：`git checkout main && git merge --no-ff test -m "chore: merge test into main for release"`
+   - gitflow：合并到 `release` 分支
+4. **无 test 分支或无差异**：跳过本步，按常规流程发版
+
 ## 2. 版本规划
 
 确定版本类型（遵循 Semantic Versioning）：
@@ -205,7 +237,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 检查清单与用户确认
 
-更新 Changelog 后，**必须等待用户确认**再继续下一步：
+更新 Changelog 后，**必须等待用户确认**再继续下一步（`--changelog-only` 模式下跳过此确认，自动结束流程，不执行后续版本号升级与 Git 提交）：
 
 1. 向用户展示 Changelog 变更内容
 2. 询问用户是否需要修改
@@ -258,8 +290,10 @@ git commit -m "release: v<版本号>"
 # 创建标签
 git tag -a "v<版本号>" -m "Release v<版本号>"
 
-# 推送到远程
+# 推送到远程（stable 版本通常推 main；alpha/prerelease 直接推当前 feature 分支）
 git push origin main --tags
+# 或
+git push origin <当前分支> --tags
 ```
 
 ## 6. 首次发布检测 & npm 准备
