@@ -1,7 +1,6 @@
 ---
 name: flow-distill
 description: lionad 的知识提炼与归档流程
-disable-model-invocation: true
 ---
 
 ## 要求
@@ -44,6 +43,7 @@ disable-model-invocation: true
   - [ ] 已按归档计划写入文件
   - [ ] 已更新子领域索引文件（若新建 Topic 文件，如 `content/6.maps/_ai/ai.md`）
   - [ ] 已执行语法检查（重点校验引号方向与配对：中文左双引号 `“` / 右双引号 `”`、英文引号、ASCII 直双引号混用等）
+  - [ ] 已使用 lint 针对修改的文件执行检查（非全量）：`node /Users/lionad/Github/Lionad-Morotar/blog/scripts/lint-md.mjs`（默认检查 git 工作区中新增或修改的 Markdown 文件）
   - [ ] 已执行 git commit
 
 6. 在终端直接输出归档报告（不写入文件）
