@@ -2,7 +2,6 @@
 name: flow-dev
 description: lionad 的代码开发流程
 argument-hint: <task description> [--light]
-disable-model-invocation: true
 ---
 
 ## 要求
@@ -24,7 +23,8 @@ disable-model-invocation: true
 | 2. PRD | `docs/plans/xxx` | **继续落档** |
 | 3. DevGoal | `docs/tdd/xxx` | 终端输出，不落档 |
 | 5. Bugs | `docs/qa/xxx` | 终端输出，不落档 |
-| 7. 最终报告 | `docs/reports/xxx` | **继续落档** |
+| 6. 外部审查 | `docs/qa/xxx-external-review.md` | **继续落档** |
+| 8. 最终报告 | `docs/reports/xxx` | **继续落档** |
 
 Light mode 下终端输出需包含足够上下文，使我能直接继续下一阶段而不必回读文件。
 
@@ -36,7 +36,7 @@ Light mode 下终端输出需包含足够上下文，使我能直接继续下一
   - [ ] 确认任务类型，从新增功能、修复、UI/UX、优化、重构、性能改进等选取一个或数个侧重点
   - [ ] 确认任务深度，从 MVP、Production Ready、High Fidelity 三选一，默认为 Production Ready
   - [ ] 输出任务上下文到终端
-  - [ ] **使用 Task 工具创建以下 1～7 主要步骤**
+  - [ ] **使用 Task 工具创建以下 1～8 主要步骤**
 
 1. 从用户输入或上下文，捕获我想构建的内容的原始想法，对原始想法进行**极其细致**的分析，扩充成 UltraThoughts
   - [ ] 已明确原始想法的来源（用户输入 / 会话上下文 / 文件路径）
@@ -67,11 +67,19 @@ Light mode 下终端输出需包含足够上下文，使我能直接继续下一
   - [ ] 已确认待修复问题 Bugs
   - [ ] `--light` 时终端输出 Bugs；否则写入 `<working-dir>/docs/qa/xxx`
 
-6. 针对 Bugs 执行 `tdd` 技能，无需我确认，自动推进全部问题的修复
-  - [ ] 已读取 `~/.claude/skills/tdd/SKILL.md`
-  - [ ] 已自动推进全部 Bugs 修复
+6. **外部正交审查**（code-review 之后、修复之前；架构/流程类技能或 PRD 复杂度 ≥ medium 时执行，简单改动可跳过）
+   - [ ] 确定审查者模型（正交）：当前 glm → `ck`（kimi）；当前 kimi → `cg`（glm）。避开同模型盲区
+   - [ ] 准备正交 prompt：让审查者从架构/理念/失败模式/长期演进角度审，明确避开 step 5 已覆盖的工程缝隙；附 step 5 Bugs 报告路径供其去重
+   - [ ] 写 prompt 到临时文件，启动审查者：`zsh -ic 'ck -p "$(cat <prompt-file>)"' > <result-file> 2><err-log>`（claude -p + 对应 settings + `--dangerously-skip-permissions`）
+   - [ ] **10 分钟超时兜底**：`CronCreate` 一次性任务（10 分钟后触发，prompt = `pkill -f 'cc-expand/bin/claude.*<审查者 settings>'` 杀审查者进程防计费失控）；审查正常拿到结果后立即 `CronDelete`
+   - [ ] 归档外部审查结果到 `<working-dir>/docs/qa/<taskname>-external-review.md`（`--light` 同样落档）
+   - [ ] 合并外部审查发现到 step 5 的 Bugs（去重），纳入下一步修复
 
-7. 输出最终报告到 `<working-dir>/docs/reports/xxx`（我会在睡醒后查看最终报告）
-  - [ ] 已输出最终报告到 `<working-dir>/docs/reports/xxx`（`--light` 同样需要落档）
+7. 针对 Bugs（含外部审查发现）执行 `tdd` 技能，无需我确认，自动推进全部问题的修复
+   - [ ] 已读取 `~/.claude/skills/tdd/SKILL.md`
+   - [ ] 已自动推进全部 Bugs 修复（含外部审查正交发现）
 
-8. 任务结束，清空 Tasks
+8. 输出最终报告到 `<working-dir>/docs/reports/xxx`（我会在睡醒后查看最终报告）
+   - [ ] 已输出最终报告到 `<working-dir>/docs/reports/xxx`（`--light` 同样需要落档）
+
+9. 任务结束，清空 Tasks
