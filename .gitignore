@@ -20,3 +20,6 @@ local-link/skills/crosspost-skills
 .gstack/
 
 local-link/skills/kimi-web
+
+# flow 技能流程文档不入库（flow-dev 约定：输出文档默认不进 git）
+local-link/skills/flow/docs/
