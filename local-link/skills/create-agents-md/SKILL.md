@@ -17,7 +17,8 @@ disable-model-invocation: true
 1. 如果不存在 A 文件
   1.1 如果存在 C 文件，复制其内容到 A
   1.2 如果不存在 C，复制模版内容到 A，然后继续
-2. 确保两点
+  1.3 如果 A、C 已经存在，询问用户此技能将会重写 A、C 文件
+2. 确保：
   2.1 A 和 C 内容一致
   2.2 A 是真实文件，C 是 ln -s 或相反（即 C 是真实文件，A 是 ln -s）
 3. 如存在 `gsd:map-codebase` 技能，
@@ -27,7 +28,7 @@ disable-model-invocation: true
   3.2 如果存在 gsd-docs，询问用户是否派发子代理执行 `/gsd-docs-update --verify-only` 更新设计上下文
 4. 如果不存在设计上下文，如有则使用 Ask 询问是否执行 `teach-impeccable` 技能
 5. 如有则使用 Ask 询问是否执行 `setup-matt-pocock-skills` 技能
-  5.1 仅包含 `Domain Docs` 部分和文档即可，无需 `Issue tracker`、`Triage Labels` 的描述以及文档（`docs/agents/xxx`）
+  5.1 仅包含 `Domain Docs` 部分和文档即可，**无需 `Issue tracker`、`Triage Labels` 的描述以及文档（`docs/agents/xxx`）**
 6. 如有则用 Ask 询问是否执行 `/learn-codebase` 技能
 7. 撰写提交计划，使用 Ask 向用户确认用户是否提交
 
