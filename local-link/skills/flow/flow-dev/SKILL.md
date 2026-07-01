@@ -19,7 +19,7 @@ argument-hint: <task description> [--full]
 
 | 依赖 | 形态 | 调用方式 |
 |---|---|---|
-| grill-with-docs / to-prd / tdd | skill（SKILL.md） | 读 `~/.claude/skills/<name>/SKILL.md` 后按流程执行 |
+| grill-me / to-prd / tdd | skill（SKILL.md） | 读 `~/.claude/skills/<name>/SKILL.md` 后按流程执行 |
 | code-review | **plugin command**（非 SKILL.md，别去找） | 按其维度（correctness/reuse/efficiency + effort low/medium/max）手动审，或 `Skill code-review` |
 | ck（kimi，正交审查） | **zsh function** | `timeout 600 zsh -ic 'ck -p "..."'`。`bash` / 裸 `which ck` 会报 `_claude_run_with_version: command not found`——必须 `zsh -ic` 加载 profile |
 | cg（glm，正交审查） | zsh function | 同 ck 模式 `zsh -ic 'cg -p "..."'`；内部超时 ~700s |
@@ -54,9 +54,9 @@ argument-hint: <task description> [--full]
   - [ ] 已根据任务上下文从各角度（示例如小型需求可以从需求范围、架构、数据、模块、测试、工程这些角度入手）极其细致的分析
   - [ ] 默认终端输出 UltraThoughts；`--full` 时输出到 `<working-dir>/docs/thoughts/xxx` 供后续步骤使用
 
-2. 针对 UltraThoughts 执行 `grill-with-docs` 技能，当问询结束后，使用 `to-prd` 技能把 PRD 文档沉淀到 `<working-dir>/docs/plans/xxx`
-  - [ ] 已读取 `~/.claude/skills/grill-with-docs/SKILL.md`
-  - [ ] 已完成 `grill-with-docs` 问询流程
+2. 针对 UltraThoughts 执行 `grill-me` 技能，当问询结束后，使用 `to-prd` 技能把 PRD 文档沉淀到 `<working-dir>/docs/plans/xxx`
+  - [ ] 已读取 `~/.claude/skills/grill-me/SKILL.md`
+  - [ ] 已完成 `grill-me` 问询流程
   - [ ] 已输出决策表格（含方案对比与最终选择）
   - [ ] 已读取 `~/.claude/skills/to-prd/SKILL.md`
   - [ ] 已使用 `to-prd` 技能将 PRD 文档沉淀到 `<working-dir>/docs/plans/xxx`（默认模式下同样需要落档）
