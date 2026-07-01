@@ -78,7 +78,7 @@ argument-hint: <task description> [--full]
   - [ ] 已确认待修复问题 Bugs
   - [ ] 默认终端输出 Bugs；`--full` 时写入 `<working-dir>/docs/qa/xxx`
 
-6. **外部正交审查**（code-review 之后、修复之前；架构/流程类技能或 PRD 复杂度 ≥ medium 时执行，简单改动可跳过）
+6. **外部正交审查**（code-review 之后、修复之前；架构/流程类技能或 PRD 复杂度 ≥ low 时执行，简单的数行改动可跳过此步骤）
    - [ ] 确定审查者模型（正交）：当前 glm → `ck`（kimi）；当前 kimi → `cg`（glm）。避开同模型盲区。ck/cg 均为 zsh function，见「外部依赖入口」
    - [ ] 准备正交 prompt：让审查者从架构/理念/失败模式/长期演进角度审，明确避开 step 5 已覆盖的工程缝隙；附 step 5 Bugs 报告路径供其去重
    - [ ] 写 prompt 到临时文件，启动审查者：`timeout <外部超时> zsh -ic '<ck|cg> -p "$(cat <prompt-file>)"' > <result-file> 2><err-log>`（外部超时要 > 审查者内部超时：ck ~270s 给 600，cg ~700s 给 900）
