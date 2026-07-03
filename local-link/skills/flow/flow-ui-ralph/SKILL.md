@@ -121,7 +121,19 @@ V-Zone 是页面中可独立截图、独立评分、独立修复的最小 UI 单
    * 键盘交互状态（Focus order / 快捷键 / 回车提交 / ESC 关闭）
    * 响应式断点与动画/过渡表现
    * 若目标素材未明确给出某状态，则基于项目已有代码、设计系统、可访问性最佳实践推断该状态的验收标准
-   * **拆分 V-Zone**：将完整目标图拆分为多个可验证区域，保存到 `target/zones/`，并为每个 V-Zone 明确验收标准
+   * **识别 V-Zone**：分析 `target/fullpage.png` 或目标素材，识别出所有可验证区域，为每个 V-Zone 定义：
+     * 序号（从 1 开始）
+     * 名称与用途（如 `hero-card`）
+     * 建议截图范围（如 "首屏 Hero 卡片区域"）
+     * 验收标准
+   * **输出 V-Zone 清单**：在终端以编号列表形式输出所有 V-Zone，提示用户按顺序逐个截图并粘贴到目标文件夹。示例：
+     ```
+     请按以下顺序截取 V-Zone 目标图并粘贴到...：
+     1. hero-card — 首屏 Hero 卡片区域
+     2. search-form — 顶部搜索表单
+     3. feature-grid — 特性卡片网格
+     ```
+   * **接收并自动命名用户截图**：用户粘贴的图片文件名可能为 `Image_2.png` 等系统随机名，agent 必须忽略原始文件名，按用户粘贴顺序自动重命名为 `target/zones/<zone-name>.png`。所以等用户确认继续后，立即分析文件名并重命名。
 2. **文档澄清**：针对 FinalTarget 执行 `grill-with-docs` 技能，当问询结束后，使用 `to-prd` 技能把 PRD 文档沉淀到 `<working-dir>/docs/plans/xxx`
 3. **建立基线（Baseline）**：使用 `kimi-webbridge` 技能对当前项目进行首次截图，保存到 `<working-dir>/docs/ui/<taskname>/iterations/000-baseline/`：
    * 一张整页截图 `fullpage.png`
