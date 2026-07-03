@@ -1,7 +1,7 @@
 ---
 name: flow-dev
 description: lionad 的代码开发流程
-argument-hint: <task description> [--full]
+argument-hint: <task description> [--full] [--worktree]
 ---
 
 ## 要求
@@ -28,7 +28,7 @@ argument-hint: <task description> [--full]
 
 默认仅保留必须落档的文档，其余中间产物改为终端输出。传入 `--full` 时，所有中间产物按完整流程落档：
 
-| 步骤 | 默认落档路径 | 默认行为（`--light`，即非全量模式） | `--full` 行为 |
+| 步骤 | 默认落档路径 | 默认行为 | `--full` 行为 |
 |------|-------------|----------|---------------|
 | 1. UltraThoughts | `docs/thoughts/xxx` | 终端输出，不落档 | 落档 |
 | 2. PRD | `docs/plans/xxx` | **继续落档** | **继续落档** |
@@ -41,6 +41,10 @@ argument-hint: <task description> [--full]
 
 默认模式下终端输出需包含足够上下文，使我能直接继续下一阶段而不必回读文件。
 
+## Worktree 模式
+
+默认不在 worktree 中执行，`<working-dir>` 直接等于 `<repo-root>`。传入 `--worktree` 时，先读取 `references/worktree-mode.md`，再按其中规则进入隔离 worktree 并将 `<working-dir>` 指向 worktree 路径。
+
 ## Workflow
 
 0. 初始化上下文
@@ -48,8 +52,17 @@ argument-hint: <task description> [--full]
   - [ ] 确认项目环境，宗地、绿地项目等
   - [ ] 确认任务类型，从新增功能、修复、UI/UX、优化、重构、性能改进等选取一个或数个侧重点
   - [ ] 确认任务深度，从 MVP、Production Ready、High Fidelity 三选一，默认为 Production Ready
-  - [ ] 输出任务上下文到终端
-  - [ ] **使用 Task 工具创建以下 1～8 主要步骤**
+  - [ ] **初始化 git 上下文**：
+    - [ ] 记录 `<repo-root>` = `git rev-parse --show-toplevel`
+    - [ ] 记录 `<original-branch>` = `git branch --show-current`
+    - [ ] 默认设置 `<working-dir>` = `<repo-root>`
+  - [ ] **若传入 `--worktree`，读取 `references/worktree-mode.md` 并进入 worktree**：
+    - [ ] 读取 `references/worktree-mode.md`
+    - [ ] 检测当前是否已在 worktree 中
+    - [ ] 若未在 worktree，使用 `EnterWorktree` 创建 `<task-slug>` worktree，基分支为 `head`
+    - [ ] 设置 `<working-dir>` 为当前 worktree 根目录，并继承 `.env*` 等本地环境文件
+  - [ ] 输出任务上下文到终端（含 `<repo-root>`、`<working-dir>`、`<original-branch>`）
+  - [ ] **使用 Task 工具创建以下 1～9 主要步骤**
 
 1. 从用户输入或上下文，捕获我想构建的内容的原始想法，对原始想法进行**极其细致**的分析，扩充成 UltraThoughts
   - [ ] 已明确原始想法的来源（用户输入 / 会话上下文 / 文件路径）
@@ -95,6 +108,15 @@ argument-hint: <task description> [--full]
 8. 输出最终报告（我会在睡醒后查看最终报告），以及拟定分批提交计划
    - [ ] 已输出最终报告到 `<working-dir>/docs/reports/xxx`（默认模式下同样需要落档）
    - [ ] 已经输出分批提交计划到终端
+   - [ ] 若本次使用了 `--worktree`，在最终报告末尾追加 worktree 收尾决策：询问是否将当前 worktree 的改动合并回 `<original-branch>` 并退出/清理 worktree 以便在原分支 review
 
 9. 任务结束
   - [ ] 清空 Tasks
+  - [ ] 若本次使用了 `--worktree`
+    - [ ] 用户回复 yes（合并并清理）
+      - [ ] 在 `<working-dir>` 中确保所有改动已提交
+      - [ ] 在 `<repo-root>` 的 `<original-branch>` 上执行 `git merge --no-ff <worktree-branch>`（trunk-based 项目使用 `--no-ff`）
+      - [ ] 使用 `ExitWorktree` 的 `action: "remove"` 退出并清理 worktree
+    - [ ] 用户回复 keep 或未回复：
+      - [ ] 使用 `ExitWorktree` 的 `action: "keep"`，仅恢复原始 cwd
+      - [ ] 保留 worktree 目录与分支供手动 review
