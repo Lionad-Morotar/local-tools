@@ -37,6 +37,8 @@ argument-hint: <task description> [--full]
 | 6. 外部审查 | `docs/qa/xxx-external-review.md` | 不落档 | 不落档 |
 | 8. 最终报告 | `docs/reports/xxx` | **继续落档** | **继续落档** |
 
+无需生成也无需落档的文档：`docs/adr/xxx`
+
 默认模式下终端输出需包含足够上下文，使我能直接继续下一阶段而不必回读文件。
 
 ## Workflow
@@ -90,7 +92,9 @@ argument-hint: <task description> [--full]
    - [ ] 已读取 `~/.claude/skills/tdd/SKILL.md`
    - [ ] 已自动推进全部 Bugs 修复（含外部审查正交发现）
 
-8. 输出最终报告到 `<working-dir>/docs/reports/xxx`（我会在睡醒后查看最终报告）
+8. 输出最终报告（我会在睡醒后查看最终报告），以及拟定分批提交计划
    - [ ] 已输出最终报告到 `<working-dir>/docs/reports/xxx`（默认模式下同样需要落档）
+   - [ ] 已经输出分批提交计划到终端
 
-9. 任务结束，清空 Tasks
+9. 任务结束
+  - [ ] 清空 Tasks
