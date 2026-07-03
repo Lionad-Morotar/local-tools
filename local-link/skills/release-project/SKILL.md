@@ -278,6 +278,10 @@ npx standard-version --release-as [patch|minor|major]
 - 文档中的版本引用
 - lockfile 更新
 
+**Prerelease 版本**（版本号含 `-`，如 alpha/beta/rc）：
+- 升级同系列用 `npm version prerelease --no-git-tag-version`（如 alpha.2 → alpha.3）；误用 `npm version patch` 会跨出该系列直奔 stable
+- `--no-git-tag-version` 让版本号与 CHANGELOG 进同一个 `release:` commit，避免 npm version 自动产生只含 package.json 的孤点 commit
+
 ## 5. Git 提交与标签
 
 标准发布提交：
