@@ -68,3 +68,6 @@
 [submodule "local-link/skills/find-source-skills"]
 	path = local-link/skills/find-source-skills
 	url = https://github.com/Lionad-Morotar/find-source-skills.git
+[submodule "local-link/skills/flow"]
+	path = local-link/skills/flow
+	url = https://github.com/Lionad-Morotar/polaris-project-skills.git
