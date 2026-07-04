@@ -95,7 +95,7 @@ argument-hint: <task description> [--full] [--worktree]
 
 6. **外部正交审查**（code-review 之后、修复之前；架构/流程类技能或 PRD 复杂度 ≥ low 时执行，简单的数行改动可跳过此步骤）
    - [ ] 确定审查者模型（正交）：当前 glm → `ck`（kimi）；当前 kimi → `cg`（glm）。避开同模型盲区。ck/cg 均为 zsh function，见「外部依赖入口」
-   - [ ] 准备正交 prompt：让审查者从架构/理念/失败模式/长期演进角度审，明确避开 step 5 已覆盖的工程缝隙；附 step 5 Bugs 报告路径供其去重
+   - [ ] 准备正交 prompt：描述你的 code-review 的范围，让审查者避开你已进行的角度做正交审查，需附 step 5 Bugs 报告路径供其去重
    - [ ] 外部审查的提示词到 `<working-dir>/docs/qa/<taskname>-external-prompt.md`，启动审查者：`timeout <外部超时> zsh -ic '<ck|cg> -p "$(cat <prompt-file>)"' > <result-file> 2><err-log>`（外部超时要 > 审查者内部超时：ck ~270s 给 600，cg ~700s 给 900）
    - [ ] **超时兜底**：`CronCreate` 一次性任务（外部超时 + 缓冲后触发，prompt = `pkill -f <审查者进程特征>`，ck → `pkill -f kimi`、cg → `pkill -f glm`，防计费失控）；审查正常拿到结果后立即 `CronDelete`
    - [ ] 归档外部审查结果到 `<working-dir>/docs/qa/<taskname>-external-review.md`
