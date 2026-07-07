@@ -1,7 +1,7 @@
 ---
 name: release-project
 description: 项目版本发布流程指导，帮助用户完成版本规划、Changelog 管理、版本号升级、Git 标签创建和 npm 首次发布准备。Use when: (1) 用户需要发布新版本 (2) 需要创建版本发布流程 (3) 需要管理版本号和 Changelog (4) 需要自动化版本发布 (5) 需要识别分支模型并确保发版分支同步 (6) 首次 npm 发布准备
-argument-hint: [--changelog-only]
+argument-hint: [--changelog-only] [--sync-to <target-branch>]
 ---
 
 # Release Project
@@ -23,6 +23,57 @@ argument-hint: [--changelog-only]
 - 自动确认，不暂停询问
 - 不触碰版本号、Git tag、远程推送
 - 完整发版流程（版本号升级、打 tag、test→main 合并、npm 发布）仍由用户**不带**该参数调用本技能完成
+
+## Branch-sync 模式（`--sync-to <target-branch>`）
+
+传入 `--sync-to release` 时，**仅执行分支同步**，跳过版本规划、Changelog 整理、版本号升级、Git 标签创建和 npm 发布。用于把当前分支（如 `dev`）的最新内容同步到目标分支（如 `release`），以便 Jenkins 等 CI/CD 触发运行。
+
+该模式下：
+
+- 不升级版本号、不打 tag、不写 Changelog
+- 先 `git fetch` 确保判断准确
+- 检测当前分支与目标分支的相对位置，自动选择 **fast-forward** 或 **non-fast-forward merge**
+- 同步完成后切回源分支
+- 如果目标分支不存在，询问是否基于当前分支创建
+
+### 同步路径决策
+
+```bash
+# 当前分支领先目标分支（ff 可能）
+AHEAD=$(git log --oneline <target>..<current> | wc -l)
+
+# 目标分支领先当前分支
+BEHIND=$(git log --oneline <current>..<target> | wc -l)
+```
+
+| 状态 | 决策 |
+|-----|------|
+| `AHEAD > 0 && BEHIND == 0` | 当前分支是目标分支的祖先，执行 `--ff-only` 同步 |
+| `AHEAD == 0 && BEHIND > 0` | 目标分支已经领先，无需同步，直接结束 |
+| `AHEAD > 0 && BEHIND > 0` | 两分支分叉，按项目 merge style 执行 `--no-ff` merge 或询问用户 |
+| `AHEAD == 0 && BEHIND == 0` | 两分支一致，无需同步，直接结束 |
+
+### fast-forward 同步
+
+```bash
+git checkout <target-branch>
+git merge <source-branch> --ff-only
+git push origin <target-branch>
+```
+
+### non-fast-forward 同步
+
+分叉时按项目 merge style 选择：
+
+- **trunk-based 项目**（如 github flow，主分支为发布分支）：`git merge <source-branch> --no-ff -m "chore: sync <source> into <target>"`
+- **持续在 dev/release 分支集成的项目**：优先使用 fast-forward；若无法 ff，询问用户是 `--no-ff` merge 还是先把源分支 rebase 到目标分支后再同步
+
+### 通用保护
+
+1. 同步前检查工作区是否干净；不干净则拒绝或让用户先提交
+2. 同步前确保源分支已 `git push origin <source-branch>`
+3. 同步后切回源分支
+4. push 失败时（如目标分支受保护）立即报告，不继续后续发版流程
 
 ## 工作流程
 
@@ -150,6 +201,70 @@ argument-hint: [--changelog-only]
    - trunk-based：`git checkout main && git merge --no-ff test -m "chore: merge test into main for release"`
    - gitflow：合并到 `release` 分支
 4. **无 test 分支或无差异**：跳过本步，按常规流程发版
+
+### 1.7 `--sync-to` 分支同步
+
+当传入 `--sync-to <target-branch>` 时，本技能进入**纯分支同步模式**，不执行版本号、Changelog、tag 等发版操作。
+
+#### 执行流程
+
+1. **记录源分支**：
+   ```bash
+   SOURCE=$(git branch --show-current)
+   TARGET=<用户传入的目标分支>
+   ```
+
+2. **拉取远端最新状态**：
+   ```bash
+   git fetch origin
+   ```
+
+3. **检查目标分支是否存在**：
+   - 本地：`git branch --list "$TARGET"`
+   - 远端：`git ls-remote --heads origin "$TARGET"`
+   - 都不存在：询问用户是否创建；若确认，执行 `git checkout -b "$TARGET"`
+
+4. **确保远端 tracking 存在**：
+   - 若本地有目标分支但没有 tracking：`git branch -u origin/"$TARGET" "$TARGET"`
+   - 若只有远端有目标分支：`git checkout -t origin/"$TARGET"`
+
+5. **计算相对位置**：
+   ```bash
+   AHEAD=$(git rev-list --count "$TARGET".."$SOURCE")
+   BEHIND=$(git rev-list --count "$SOURCE".."$TARGET")
+   ```
+
+6. **根据相对位置执行同步**：
+
+   **A）`AHEAD > 0 && BEHIND == 0`（可 fast-forward）**
+   ```bash
+   git checkout "$TARGET"
+   git merge "$SOURCE" --ff-only
+   git push origin "$TARGET"
+   ```
+
+   **B）`AHEAD == 0 && BEHIND > 0`（目标分支已领先）**
+   - 报告：`"$TARGET" 已领先 "$SOURCE" $BEHIND 个提交，无需同步`
+   - 结束流程
+
+   **C）`AHEAD == 0 && BEHIND == 0`（已一致）**
+   - 报告：`"$SOURCE" 与 "$TARGET" 已经一致`
+   - 结束流程
+
+   **D）`AHEAD > 0 && BEHIND > 0`（分叉，无法 ff）**
+   - 调用 `recognize-codebase-branch-flow` 识别分支模型
+   - 若模型为 `github flow` / `trunk-based`：默认 `git merge "$SOURCE" --no-ff -m "chore: sync $SOURCE into $TARGET"`
+   - 若模型为持续集成的 dev/release 流：询问用户 `--no-ff` merge 还是 rebase 后再同步
+   - 执行 merge 后 `git push origin "$TARGET"`
+
+7. **切回源分支**：
+   ```bash
+   git checkout "$SOURCE"
+   ```
+
+#### 与其他模式的互斥
+
+`--sync-to` 与 `--changelog-only` 不能同时使用。若同时传入，向用户确认以哪个为准，或默认 `--sync-to` 优先并报告冲突。
 
 ## 2. 版本规划
 
