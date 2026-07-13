@@ -32,7 +32,7 @@ disable-model-invocation: true
 ├── skills/
 │   └── <skill-name>/      # Skill 目录
 │       ├── SKILL.md       # Skill 定义
-│       ├── reference/     # 参考文档（可选）
+│       ├── references/    # 参考文档（可选）
 │       ├── scripts/       # 脚本（可选）
 │       └── assets/        # 资源文件（可选）
 ```
