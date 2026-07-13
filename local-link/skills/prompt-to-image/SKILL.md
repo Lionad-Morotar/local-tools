@@ -237,7 +237,10 @@ mkdir -p "$OUTPUT_DIR"
 # 提取图片后，等待文件完全就绪
 python3 scripts/extract_images.py "$JSON_FILE" "$OUTPUT_DIR"
 
-# 获取最新生成的图片路径
+# 获取最新生成的图片路径（在 zsh 中避免 NOMATCH 导致无匹配 globs 时脚本中断）
+if [ -n "$ZSH_VERSION" ]; then
+  setopt local_options nullglob
+fi
 IMAGE_FILE=$(ls -t "$OUTPUT_DIR"/image_*.jpg "$OUTPUT_DIR"/image_*.png 2>/dev/null | head -1)
 
 # 等待文件写入完成（检测文件大小稳定 + 系统同步）
