@@ -71,3 +71,6 @@
 [submodule "local-link/skills/flow"]
 	path = local-link/skills/flow
 	url = https://github.com/Lionad-Morotar/polaris-project-skills.git
+[submodule "local-link/skills/blog-illustrations-skills"]
+	path = local-link/skills/blog-illustrations-skills
+	url = https://github.com/Lionad-Morotar/blog-illustrations-skills
