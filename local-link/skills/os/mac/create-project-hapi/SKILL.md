@@ -156,14 +156,23 @@ launchctl load -w "$PLIST_DIR/com.hapi.$PROJECT_NAME.runner.plist"
 
 hapi 默认调用系统 `claude` 命令。若希望 hapi 使用 `ckh`/`cg` 等自定义 Claude 启动方式（对应 `~/.cp/*.json` 的 settings），需要创建一个 wrapper 脚本，并通过 `HAPI_CLAUDE_PATH` 环境变量让 hapi 使用它。
 
+当 hapi 启动 direct-connect / runner 会话时，会透传一个自己的 `--settings`（session-hook，用于注入 hapi 的 SessionStart hook）。这个 session-hook 如果直接覆盖 mode settings，会导致 `ANTHROPIC_BASE_URL` 等 provider env 丢失。因此 wrapper 需要把 mode settings 与 hapi 透传的 session-hook **合并**后再传给 Claude。
+
 创建文件：`$HOME/.hapi/claude-wrappers/hapi-claude`
 
 ```bash
 #!/bin/bash
+# hapi-claude wrapper：让 hapi 可以按 cg/ckh/ck 等模式启动 Claude，
+# 复现 ~/.zshrc 中对应函数的行为（版本 + settings + headers patch）。
+# 当 hapi 透传自己的 --settings（如 session-hook）时，会将其与 mode settings 合并，
+# 避免 session-hook 覆盖掉 provider 相关的 env 配置。
+
 set -euo pipefail
 
 mode="${HAPI_CLAUDE_MODE:-}"
+
 if [[ -z "$mode" ]]; then
+  echo "HAPI_CLAUDE_MODE is not set, falling back to system claude" >&2
   exec claude "$@"
 fi
 
@@ -186,24 +195,62 @@ case "$mode" in
   cog)  code=700000; binary="$HOME/.cc-expand/bin/claude-70w"; settings="$HOME/.cp/opencode-glm.json" ;;
   coq)  code=270000; binary="$HOME/.cc-expand/bin/claude-27w"; settings="$HOME/.cp/opencode-qwen.json" ;;
   cods) code=700000; binary="$HOME/.cc-expand/bin/claude-70w"; settings="$HOME/.cp/opencode-ds.json" ;;
-  *)    echo "Unknown HAPI_CLAUDE_MODE: $mode" >&2; exit 1 ;;
+  *)
+    echo "Unknown HAPI_CLAUDE_MODE: $mode" >&2
+    exit 1
+    ;;
 esac
 
 if [[ ! -x "$binary" ]]; then
-  echo "Claude binary not found: $binary" >&2; exit 1
-fi
-if [[ ! -f "$settings" ]]; then
-  echo "Settings file not found: $settings" >&2; exit 1
+  echo "Claude binary not found: $binary" >&2
+  exit 1
 fi
 
+if [[ ! -f "$settings" ]]; then
+  echo "Settings file not found: $settings" >&2
+  exit 1
+fi
+
+# 解析 hapi 透传过来的 --settings（通常是 session-hook），
+# 将其与 mode settings 合并，避免 session-hook 覆盖 provider env。
+hapi_settings=""
+remaining_args=()
+i=0
+while [[ $i -lt $# ]]; do
+  arg="${@:$((i+1)):1}"
+  if [[ "$arg" == "--settings" ]]; then
+    if [[ $((i+1)) -lt $# ]]; then
+      hapi_settings="${@:$((i+2)):1}"
+      i=$((i+2))
+      continue
+    fi
+  elif [[ "$arg" == --settings=* ]]; then
+    hapi_settings="${arg#--settings=}"
+    i=$((i+1))
+    continue
+  fi
+  remaining_args+=("$arg")
+  i=$((i+1))
+done
+
+# 生成临时 settings，复现 _claude_versioned_settings 的 headers patch
 tmpdir=$(mktemp -d)
 chmod 700 "$tmpdir"
 tmp_settings="$tmpdir/settings.json"
-jq --arg v "$code" '.env.ANTHROPIC_CUSTOM_HEADERS |= sub("claude-cli/[^ ]+"; "claude-cli/" + $v)' "$settings" > "$tmp_settings"
-chmod 600 "$tmp_settings"
-trap 'rm -rf "$tmpdir"' EXIT
 
-exec "$binary" --settings "$tmp_settings" --dangerously-skip-permissions "$@"
+if [[ -n "$hapi_settings" && -f "$hapi_settings" ]]; then
+  jq --arg v "$code" -s '.[0] * .[1] | .env.ANTHROPIC_CUSTOM_HEADERS |= sub("claude-cli/[^ ]+"; "claude-cli/" + $v)' "$settings" "$hapi_settings" > "$tmp_settings"
+else
+  jq --arg v "$code" '.env.ANTHROPIC_CUSTOM_HEADERS |= sub("claude-cli/[^ ]+"; "claude-cli/" + $v)' "$settings" > "$tmp_settings"
+fi
+chmod 600 "$tmp_settings"
+
+cleanup() {
+  rm -rf "$tmpdir"
+}
+trap cleanup EXIT
+
+exec "$binary" --settings "$tmp_settings" --dangerously-skip-permissions "${remaining_args[@]}"
 ```
 
 然后赋权：
