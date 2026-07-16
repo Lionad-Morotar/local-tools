@@ -74,3 +74,6 @@
 [submodule "local-link/skills/blog-illustrations-skills"]
 	path = local-link/skills/blog-illustrations-skills
 	url = https://github.com/Lionad-Morotar/blog-illustrations-skills
+[submodule "local-link/skills/kimi-web-skills"]
+	path = local-link/skills/kimi-web-skills
+	url = https://github.com/Lionad-Morotar/kimi-web-skills.git
