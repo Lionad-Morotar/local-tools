@@ -17,7 +17,7 @@ step_link_skills() {
   # 将 local-link/skills 下的 skill 目录链接到 Claude skills 目录。
   local src_root="$1"
   local dest_root="$2"
-  local max_depth="${3:-${LINK_SKILLS_MAX_DEPTH:-3}}"
+  local max_depth="${3:-${LINK_SKILLS_MAX_DEPTH:-5}}"
 
   log "[link-skills] Source: $src_root"
   log "[link-skills] Destination root: $dest_root"
@@ -86,7 +86,7 @@ step_link_skills() {
 step_link_skills_dry_run() {
   local src_root="$1"
   local dest_root="$2"
-  local max_depth="${3:-${LINK_SKILLS_MAX_DEPTH:-3}}"
+  local max_depth="${3:-${LINK_SKILLS_MAX_DEPTH:-5}}"
 
   log "[link-skills] Source: $src_root"
   log "[link-skills] Destination root: $dest_root"
