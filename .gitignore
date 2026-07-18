@@ -24,3 +24,9 @@ local-link/skills/os/mac/mac-launch-items
 
 # flow 技能流程文档不入库（flow-dev 约定：输出文档默认不进 git）
 local-link/skills/flow/docs/
+
+local-link/claude/
+local-link/claude-skills/
+local-link/openclaw-skills/
+local-link/claude/plugins/cache/
+local-link/skills-backup/
