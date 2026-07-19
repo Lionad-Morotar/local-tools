@@ -1,7 +1,7 @@
 ---
 name: release-project
 description: 项目版本发布流程指导，帮助用户完成版本规划、Changelog 管理、版本号升级、Git 标签创建和 npm 首次发布准备。Use when: (1) 用户需要发布新版本 (2) 需要创建版本发布流程 (3) 需要管理版本号和 Changelog (4) 需要自动化版本发布 (5) 需要识别分支模型并确保发版分支同步 (6) 首次 npm 发布准备
-argument-hint: [--changelog-only] [--sync-to <target-branch>]
+argument-hint: "[--changelog-only] [--sync-to <target-branch>]"
 ---
 
 # Release Project
@@ -14,105 +14,36 @@ argument-hint: [--changelog-only] [--sync-to <target-branch>]
 - 项目配置了 `package.json`（Node.js 项目）或相应的版本管理文件
 - 分支模型可识别（第 1 步调用 `recognize-codebase-branch-flow` 技能自动判定 trunk-based 或 release-branch）
 
-## Changelog-only 模式
+## 运行模式
 
-传入 `--changelog-only` 时，仅执行「3. Changelog 整理」中的 `[Unreleased]` 维护，**跳过用户确认、不升级版本号、不打 Git 标签、不推送**，整理完即结束。把“整理变更条目”与“真正发版”解耦，供自动化流程（如 `flow-north-star-loop`）在开发过程中增量沉淀 changelog。
-
-该模式下：
-- 只更新 `## [Unreleased]` 区块（遵循 Keep a Changelog 分类、正交合并、`[internal]` 标记）
-- 自动确认，不暂停询问
-- 不触碰版本号、Git tag、远程推送
-- 完整发版流程（版本号升级、打 tag、test→main 合并、npm 发布）仍由用户**不带**该参数调用本技能完成
-
-## Branch-sync 模式（`--sync-to <target-branch>`）
-
-传入 `--sync-to release` 时，**仅执行分支同步**，跳过版本规划、Changelog 整理、版本号升级、Git 标签创建和 npm 发布。用于把当前分支（如 `dev`）的最新内容同步到目标分支（如 `release`），以便 Jenkins 等 CI/CD 触发运行。
-
-该模式下：
-
-- 不升级版本号、不打 tag、不写 Changelog
-- 先 `git fetch` 确保判断准确
-- 检测当前分支与目标分支的相对位置，自动选择 **fast-forward** 或 **non-fast-forward merge**
-- 同步完成后切回源分支
-- 如果目标分支不存在，询问是否基于当前分支创建
-
-### 同步路径决策
-
-```bash
-# 当前分支领先目标分支（ff 可能）
-AHEAD=$(git log --oneline <target>..<current> | wc -l)
-
-# 目标分支领先当前分支
-BEHIND=$(git log --oneline <current>..<target> | wc -l)
-```
-
-| 状态 | 决策 |
-|-----|------|
-| `AHEAD > 0 && BEHIND == 0` | 当前分支是目标分支的祖先，执行 `--ff-only` 同步 |
-| `AHEAD == 0 && BEHIND > 0` | 目标分支已经领先，无需同步，直接结束 |
-| `AHEAD > 0 && BEHIND > 0` | 两分支分叉，按项目 merge style 执行 `--no-ff` merge 或询问用户 |
-| `AHEAD == 0 && BEHIND == 0` | 两分支一致，无需同步，直接结束 |
-
-### fast-forward 同步
-
-```bash
-git checkout <target-branch>
-git merge <source-branch> --ff-only
-git push origin <target-branch>
-```
-
-### non-fast-forward 同步
-
-分叉时按项目 merge style 选择：
-
-- **trunk-based 项目**（如 github flow，主分支为发布分支）：`git merge <source-branch> --no-ff -m "chore: sync <source> into <target>"`
-- **持续在 dev/release 分支集成的项目**：优先使用 fast-forward；若无法 ff，询问用户是 `--no-ff` merge 还是先把源分支 rebase 到目标分支后再同步
-
-### 通用保护
-
-1. 同步前检查工作区是否干净；不干净则拒绝或让用户先提交
-2. 同步前确保源分支已 `git push origin <source-branch>`
-3. 同步后切回源分支
-4. push 失败时（如目标分支受保护）立即报告，不继续后续发版流程
+| 调用方式 | 行为 |
+|---------|------|
+| 默认（无参数） | 完整发版流程（下述 1-6 步） |
+| `--changelog-only` | 仅维护 `## [Unreleased]` 区块（遵循 Keep a Changelog 分类、正交合并、`[internal]` 标记），自动确认、不升版本号、不打 tag、不推送。供自动化流程（如 `flow-north-star-loop`）增量沉淀 changelog；完整发版由不带参数的调用完成 |
+| `--sync-to <target-branch>` | 仅执行分支同步（如 `dev` → `release` 触发 CI/CD），不执行任何发版操作。完整流程见 [branch-sync](./references/branch-sync.md)。与 `--changelog-only` 互斥 |
 
 ## 工作流程
 
+0. Preflight   
+1. 分支检查     
+2. 版本规划     
+3. Changelog   
+4. 版本号升级   
+5. Git 提交& 标签        
+6. 首次发布检测&准备    
+7. Postflight (--post 校验)  
+
+## 0. Preflight 机械检查
+
+进入流程前先跑检查脚本，把可机械判定的检查项一次跑完（脚本位于本技能目录）：
+
+```bash
+node scripts/preflight.mjs            # 发版前检查（cwd 默认为项目根目录，可用 --cwd 指定）
+node scripts/preflight.mjs --post     # 发布后校验（第 7 步）
+node scripts/preflight.mjs --json     # JSON 输出，供自动化流程消费
 ```
-┌─────────────────┐
-│  0. 分支检查     │
-│  (识别分支模型,  │
-│   确保发版分支)  │
-└────────┬────────┘
-         ▼
-┌─────────────────┐
-│  1. 版本规划     │
-└────────┬────────┘
-         ▼
-┌─────────────────┐
-│  2. Changelog   │
-│    整理         │
-└────────┬────────┘
-         │
-         ▼
-   ┌──────────┐
-   │ 用户确认  │
-   └────┬─────┘
-        │ 确认后继续
-        ▼
-┌─────────────────┐
-│  3. 版本号升级   │
-└────────┬────────┘
-         ▼
-┌─────────────────┐
-│  4. Git 提交    │
-│   & 标签        │
-└────────┬────────┘
-         ▼
-┌─────────────────┐
-│  5. 首次发布    │
-│    检测&准备    │
-└─────────────────┘
-```
+
+脚本覆盖：git 仓库、工作区干净、当前分支与远程同步、长期分支与最新 tag 探测、CHANGELOG 结构、release 脚本与钩子链、npm registry 首发状态、版本 tag 冲突。**fail 项必须先处理再继续**；info 项（分支/tag/registry 状态）直接作为第 1 步分支模型判定的输入。
 
 ## 1. 分支检查
 
@@ -129,28 +60,20 @@ git push origin <target-branch>
 | `github flow` | Trunk-based（main 直接打 tag） |
 | `gitflow` | Release-branch（develop → release → main） |
 
-**模糊映射**（`gitlab flow` / `无显著模型` / `自建模式`）或 recognize 调用失败：自动执行轻量探测——
-1. 检测长期 `release`/`develop` 分支：`git branch -a --list '*release*' '*develop*'`
-2. 检测最近 tag 落在哪个分支：`git tag -l 'v*' --sort=-v:refname | head -1` → `git branch --contains <tag>`
-3. tag 位置优先于分支名（tag 反映真实发版行为，分支名可能误导）
+**模糊映射**（`gitlab flow` / `无显著模型` / `自建模式`）或 recognize 调用失败：基于 preflight 输出的长期分支与最新 tag 位置探测——
 
-探测有定论则自动选路径；探测仍无定论才询问用户。
+1. 是否存在长期 `release`/`develop` 分支
+2. 最近 tag 落在哪个分支（tag 位置优先于分支名——tag 反映真实发版行为，分支名可能误导）
+3. tag 应位于长期分支，而不是 feat/hotfix 等短期分支
+
+探测有定论则自动选路径；探测仍无定论才用 Ask 询问用户（"检测到分支模型为 X，应走 [Trunk-based/Release-branch] 路径，是否正确？"）。
 
 ### 1.2 Trunk-based 路径（github flow 等）
 
 主分支（main/master）直接打 tag 发版：
 
-1. **确认在主分支**：
-   ```bash
-   git branch --show-current
-   ```
-   不在主分支则 `git checkout main`
-
-2. **拉取最新（仅快进）**：
-   ```bash
-   git pull --ff-only origin main
-   ```
-
+1. **确认在主分支**：`git branch --show-current`，不在主分支则 `git checkout main`
+2. **拉取最新（仅快进）**：`git pull --ff-only origin main`
 3. **验证工作区干净**：`git status`，确保无未提交变更
 
 ### 1.3 Release-branch 路径（gitflow 等）
@@ -158,30 +81,12 @@ git push origin <target-branch>
 有长期 release 分支用于发版准备：
 
 1. **检查当前分支**：`git branch --show-current`，不在 release 则 `git checkout release`
-
 2. **确保 release 分支最新**：
-
-   **情况 A：开发在 develop/feature 分支**
-   ```bash
-   git fetch origin
-   git merge origin/develop --no-ff -m "chore: merge develop into release"
-   ```
-
-   **情况 B：已在 release 分支开发**
-   ```bash
-   git pull origin release
-   ```
-
+   - 开发在 develop/feature 分支：`git fetch origin && git merge origin/develop --no-ff -m "chore: merge develop into release"`
+   - 已在 release 分支开发：`git pull origin release`
 3. **验证工作区干净**：`git status`，确保无未提交变更
 
-### 1.4 分支同步决策
-
-仅当 1.1 映射结果需要询问时，使用 Ask 工具确认：
-- "检测到分支模型为 `X`，应走 [Trunk-based/Release-branch] 路径，是否正确？"
-- "当前开发是否在 develop/feature 分支？需要合并到 release 吗？"
-- "是否需要创建 release 分支？（如果不存在）"
-
-### 1.5 Alpha / Prerelease 分支策略
+### 1.4 Alpha / Prerelease 分支策略
 
 当发布的版本是 prerelease（版本号含 `-`，如 `0.4.0-alpha.2`）时：
 
@@ -191,9 +96,9 @@ git push origin <target-branch>
 
 只有在发 **stable** 版本时，才需要把变更合并到 `main`（trunk-based）或 `release`（gitflow）后再打 tag。
 
-### 1.6 test 分支合并（flow-north-star-loop 产物）
+### 1.5 test 分支合并（flow-north-star-loop 产物）
 
-当项目存在长期 `test` 分支作为自动化开发循环（`flow-north-star-loop`）的集积分支时，发版前需先把 `test` 上已通过 e2e 验证的变更合并到发版分支——这填补 nsl-loop 产出（`test`）与发版（`main` 打 tag）之间的缝隙：
+当项目存在长期 `test` 分支作为自动化开发循环（`flow-north-star-loop`）的集成分支时，发版前需先把 `test` 上已通过 e2e 验证的变更合并到发版分支——这填补 nsl-loop 产出（`test`）与发版（`main` 打 tag）之间的缝隙：
 
 1. **检测 test 分支**：`git branch --list test`
 2. **检测待合并变更**：`git log --oneline <发版分支>..test`（若含 `feat/nsl-epic/*` 章鱼合并痕迹，确认是 nsl 产物）
@@ -201,70 +106,6 @@ git push origin <target-branch>
    - trunk-based：`git checkout main && git merge --no-ff test -m "chore: merge test into main for release"`
    - gitflow：合并到 `release` 分支
 4. **无 test 分支或无差异**：跳过本步，按常规流程发版
-
-### 1.7 `--sync-to` 分支同步
-
-当传入 `--sync-to <target-branch>` 时，本技能进入**纯分支同步模式**，不执行版本号、Changelog、tag 等发版操作。
-
-#### 执行流程
-
-1. **记录源分支**：
-   ```bash
-   SOURCE=$(git branch --show-current)
-   TARGET=<用户传入的目标分支>
-   ```
-
-2. **拉取远端最新状态**：
-   ```bash
-   git fetch origin
-   ```
-
-3. **检查目标分支是否存在**：
-   - 本地：`git branch --list "$TARGET"`
-   - 远端：`git ls-remote --heads origin "$TARGET"`
-   - 都不存在：询问用户是否创建；若确认，执行 `git checkout -b "$TARGET"`
-
-4. **确保远端 tracking 存在**：
-   - 若本地有目标分支但没有 tracking：`git branch -u origin/"$TARGET" "$TARGET"`
-   - 若只有远端有目标分支：`git checkout -t origin/"$TARGET"`
-
-5. **计算相对位置**：
-   ```bash
-   AHEAD=$(git rev-list --count "$TARGET".."$SOURCE")
-   BEHIND=$(git rev-list --count "$SOURCE".."$TARGET")
-   ```
-
-6. **根据相对位置执行同步**：
-
-   **A）`AHEAD > 0 && BEHIND == 0`（可 fast-forward）**
-   ```bash
-   git checkout "$TARGET"
-   git merge "$SOURCE" --ff-only
-   git push origin "$TARGET"
-   ```
-
-   **B）`AHEAD == 0 && BEHIND > 0`（目标分支已领先）**
-   - 报告：`"$TARGET" 已领先 "$SOURCE" $BEHIND 个提交，无需同步`
-   - 结束流程
-
-   **C）`AHEAD == 0 && BEHIND == 0`（已一致）**
-   - 报告：`"$SOURCE" 与 "$TARGET" 已经一致`
-   - 结束流程
-
-   **D）`AHEAD > 0 && BEHIND > 0`（分叉，无法 ff）**
-   - 调用 `recognize-codebase-branch-flow` 识别分支模型
-   - 若模型为 `github flow` / `trunk-based`：默认 `git merge "$SOURCE" --no-ff -m "chore: sync $SOURCE into $TARGET"`
-   - 若模型为持续集成的 dev/release 流：询问用户 `--no-ff` merge 还是 rebase 后再同步
-   - 执行 merge 后 `git push origin "$TARGET"`
-
-7. **切回源分支**：
-   ```bash
-   git checkout "$SOURCE"
-   ```
-
-#### 与其他模式的互斥
-
-`--sync-to` 与 `--changelog-only` 不能同时使用。若同时传入，向用户确认以哪个为准，或默认 `--sync-to` 优先并报告冲突。
 
 ## 2. 版本规划
 
@@ -278,7 +119,7 @@ git push origin <target-branch>
 
 ## 3. Changelog 整理
 
-遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 规范。
+遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 规范。格式模板、变动类型表、Unreleased 与 YANKED 约定见 [changelog-format](./references/changelog-format.md)。
 
 ### 核心原则
 
@@ -287,68 +128,7 @@ git push origin <target-branch>
 - 同类改动应该分组放置
 - 新版本在前，旧版本在后
 - 使用 ISO 8601 日期格式：`YYYY-MM-DD`
-
-### 标准格式
-
-```markdown
-# Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [Unreleased]
-
-### Added
-- 新添加的功能
-
-### Changed
-- 对现有功能的变更
-
-### Deprecated
-- 已经不建议使用，即将移除的功能
-
-### Removed
-- 已经移除的功能
-
-### Fixed
-- 对 bug 的修复
-
-### Security
-- 对安全性的改进
-
-## [1.0.0] - 2024-01-15
-
-### Added
-- 正式发布版本
-```
-
-### 变动类型说明
-
-| 类型 | 说明 |
-|-----|------|
-| `Added` | 新添加的功能 |
-| `Changed` | 对现有功能的变更 |
-| `Deprecated` | 已经不建议使用，即将移除的功能 |
-| `Removed` | 已经移除的功能 |
-| `Fixed` | 对 bug 的修复 |
-| `Security` | 对安全性的改进 |
-
-### Unreleased 区块
-
-在文档最上方维护 `## [Unreleased]` 区块：
-- 记录即将发布的变更内容
-- 发布新版本时，将内容移动至新版本区块
-- 保持空区块（无内容时保留标题）
-
-### YANKED 版本
-
-对于因重大 bug 或安全原因撤下的版本：
-
-```markdown
-## [0.0.5] - 2014-12-13 [YANKED]
-```
+- 文档最上方维护 `## [Unreleased]` 区块记录即将发布的变更；发布时移至新版本区块，空区块保留标题
 
 ### 检查清单与用户确认
 
@@ -359,7 +139,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 3. 只有在用户确认后才继续版本号升级和 Git 提交
 
 **检查清单**：
-- [ ] 所有变更按正确类型分类
+- [ ] 所有变更按正确类型分类（Added / Changed / Deprecated / Removed / Fixed / Security）
 - [ ] 日期格式为 ISO 8601（`YYYY-MM-DD`）
 - [ ] 包含 `[Unreleased]` 区块
 - [ ] 空类别已移除（无内容时不保留标题）
@@ -368,6 +148,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 反例：`- 增加交互式 pager` 与 `- 修复 pager footer 渲染异常` 应合并为 `- 为 supports/list 增加交互式 pager`
 - [ ] 非终端用户可见的变更已标记 `[internal]`：维护脚本、CI、内部工具、模式生成等不向最终用户暴露的条目，前缀 `[internal]`
   - 示例：`- [internal] watch-patterns 重启时通过持久化 hash 缓存避免全量重新上传`
+- [ ] 从未发布过的历史版本段已收敛合并：`npm view <pkg> version` 404 说明包未上架，其 0.x 历史段对终端用户不可见，应合并为首发段（用户只看最终形态，"相对旧实现的优化""修复了未发布版本的 bug"一类描述无意义）
 - [ ] **用户已确认 Changelog 内容**
 
 ## 4. 版本号升级
@@ -417,92 +198,54 @@ git push origin <当前分支> --tags
 
 ## 6. 首次发布检测 & npm 准备
 
-**触发时机**：完成 "Git 提交 & 标签" 后
+**触发时机**：完成 "Git 提交 & 标签" 后。
 
-### 检测逻辑
+**以 registry 为准**——git tag 数只反映 git 历史，monorepo 改造 / 包改名场景会误判（项目可能留有旧包时代的 tag，但新包名在 npm 从未上架）。preflight 脚本已执行该检测（`npm view <pkg> version --registry https://registry.npmjs.org`，404 = 首发）；若未跑脚本则手工执行。
 
-```bash
-# 统计符合 v-* 格式的标签数量
-git tag -l "v*" | wc -l
-```
+**如果 npm 查询 404**（意味着这是第一次发布），使用 Ask 工具询问用户：
 
-**如果标签数量 == 1**（意味着这是第一次发布）：
-
-使用 Ask 工具询问用户：
 > "检测到这是您第一次发布此项目。是否需要我协助进行 npm 发布准备工作？包括：
 > - 从 GitHub 读取您的个人信息（author、repository 等）
 > - 完善 package.json 字段（keywords、license、bugs、homepage 等）
 > - 配置 publishConfig（registry、access）"
 
-### npm 发布准备流程
+用户确认后，按 [first-publish](./references/first-publish.md) 执行准备流程（含 package.json 字段模板与首发检查清单）。
 
-如果用户确认需要准备：
+## 发布脚本约定（pnpm release，必备）
 
-1. **获取 GitHub 用户信息**：
-   ```bash
-   gh api user -q '.login, .name, .email, .html_url'
-   ```
+**如果项目没有 pnpm script `release`，应当补充**——发布入口必须收敛为一条命令，不允许依赖操作者记忆多步顺序。
 
-2. **完善 package.json 字段**：
-   ```json
-   {
-     "author": "用户名 <邮箱> (个人主页)",
-     "repository": {
-       "type": "git",
-       "url": "git+https://github.com/用户名/仓库名.git"
-     },
-     "bugs": {
-       "url": "https://github.com/用户名/仓库名/issues"
-     },
-     "homepage": "https://github.com/用户名/仓库名#readme",
-     "keywords": ["keyword1", "keyword2", "keyword3"],
-     "license": "MIT",
-     "publishConfig": {
-       "registry": "https://registry.npmjs.org/",
-       "access": "public"
-     }
-   }
-   ```
+### 生命周期门禁链（固定约定）
 
-3. **提交发布准备变更**：
-   ```bash
-   git add package.json
-   git commit -m "chore: release prepare"
-   ```
+```
+pnpm release
+  └─ prerelease → pnpm build(+ 多包时 build:packages)
+                   └─ prebuild → pnpm test
+```
 
-4. **验证 package.json 格式**：
-   ```bash
-   node -e "JSON.parse(require('fs').readFileSync('./package.json'))" && echo "格式正确"
-   ```
+- **`prerelease` 自动 build**：发版产物必须是当前工作区的最新构建，禁止手工先 build 再发版
+- **`prebuild` 自动 test**：任何构建都必须先过测试门禁（dev watch 类脚本独立命名，不走 `build`，不受影响）
+- `prepublishOnly` 若已存在，改为**直调构建二进制**（如 `vite build`）而非 `pnpm build`：否则 publish 生命周期会经 `prebuild` 再跑一遍全量测试（`prerelease` 链已覆盖，重复跑是纯浪费）
 
-### 首次发布额外检查清单
+### 单包项目
 
-- [ ] package.json 包含完整的 author 信息
-- [ ] repository 字段指向正确的 GitHub 仓库
-- [ ] bugs 和 homepage 字段已配置
-- [ ] keywords 包含相关关键词（至少 5 个）
-- [ ] license 已声明（MIT/ISC/Apache 等）
-- [ ] publishConfig 配置了正确的 registry
-- [ ] publishConfig.access 设置为 "public"（scoped 包必需）
-- [ ] 发布准备已提交：`chore: release prepare`
-- [ ] 运行 `npm publish --dry-run` 预览发布内容
+```json
+{
+  "scripts": {
+    "prebuild": "pnpm test",
+    "prerelease": "pnpm run build",
+    "release": "pnpm publish --config.registry=https://registry.npmjs.org --no-git-checks"
+  }
+}
+```
 
-## 可选：自动化脚本
+### 多包（workspace）项目
 
-根据项目需求，可创建发布脚本 `scripts/release.sh`：
+用 Node 脚本按**依赖序**发布：直接复制 [templates/release.mjs](./templates/release.mjs) 为项目 `scripts/release.mjs`，按依赖序填写 `PACKAGES` 即可。模板背后的完整要点见 [release-script](./references/release-script.md)：依赖序硬编码、dist-tag 自动推导、registry 显式锁官方源、必须用 `pnpm publish`（`workspace:*` 转换）、参数透传、2FA/OTP 交互边界、npm 首发 latest 平台行为等。
 
-**核心步骤（按需求选择）**：
-1. 接收版本类型参数（patch/minor/major）
-2. 检查工作区是否干净
-3. 检查 Changelog 是否已更新
-4. 运行测试/构建验证
-5. 升级版本号
-6. 同步其他文件中的版本号
-7. 创建 Git commit 和 tag
-8. 推送至远程
+### Dry-run 验证
 
-**Dry-run 模式**：
-添加 `--dry-run` 参数预览变更，不实际执行。
+脚本落地后必须跑通一次 `pnpm release -- --dry-run`（完整链路：test → build → 各包 publish dry-run），方可视为可用。
 
 ## 常见工具选择
 
@@ -515,36 +258,27 @@ git tag -l "v*" | wc -l
 
 ## 发布检查清单
 
-### 分支与同步
-- [ ] 分支模型已识别（trunk-based / release-branch）
-- [ ] 发版分支已确认（trunk-based: main / release-branch: release 分支）
-- [ ] 发版分支已与远程同步
-- [ ] 工作区干净（无未提交变更）
+机械检查项由脚本覆盖（发版前 `scripts/preflight.mjs`、发布后 `--post`），**fail 项必须清零**。以下为脚本无法替代的人工判定项：
 
-### 版本与文档
+### 人工确认
+
+- [ ] 分支模型已识别，发版路径已确认（trunk-based / release-branch）
 - [ ] 版本类型已确定（patch/minor/major）
-- [ ] Changelog 已更新（含 Unreleased 内容迁移）
 - [ ] **用户已确认 Changelog 内容**
-- [ ] 日期格式正确（ISO 8601）
+- [ ] prerelease 分支策略已遵守（1.4）：alpha 在当前分支发版，stable 才合并发版分支后打 tag
+- [ ] Git commit / tag 信息符合约定（`release: v<版本号>`）
 
-### 验证与构建
-- [ ] unit 测试通过（快速逻辑验证，发包前必跑，如 `prepublishOnly` 钩子或 `test:unit`）
-- [ ] integration/e2e 测试通过（端到端验证，push 前或 CI 跑，如 `test:e2e`）
-- [ ] 构建成功
-- [ ] 版本号已正确升级
+### 发布后人工判读（基于 `preflight.mjs --post` 输出）
 
-### Git 操作
-- [ ] Git commit 已创建（`release: v<版本号>`）
-- [ ] Git tag 已创建（`v<版本号>`）
-- [ ] 已推送到远程仓库
-
-### 首次发布额外检查（如适用）
-- [ ] package.json 字段已完善（author、repository、bugs、homepage）
-- [ ] keywords 包含相关关键词
-- [ ] publishConfig 已配置（registry、access）
-- [ ] 发布准备已提交（`chore: release prepare`）
-- [ ] 已通过 `npm publish --dry-run` 验证
+- [ ] registry 可查新版本（`--post` 已显式锁官方源；若用镜像源手工查，同步延迟会导致"新版本查不到"等假阴性）
+- [ ] dist-tag 符合预期：prerelease 不应顶 latest（npm 首发除外，见 release-script.md）
+- [ ] 入口字段完整：`npm view <pkg> main module types exports` 与 package.json 一致
+- [ ] 首次发布时已按 first-publish.md 完成 package.json 字段准备并通过 `npm publish --dry-run` 验证
 
 ## References
 
-- [Claude Code 插件版本号同步](./references/cc-plugin-version.md) — 处理 package.json、plugin.json、marketplace.json 与文档之间的版本号一致性问题
+- [branch-sync.md](./references/branch-sync.md) — `--sync-to` 纯分支同步模式的完整流程与同步路径决策
+- [changelog-format.md](./references/changelog-format.md) — Keep a Changelog 格式模板、变动类型表、Unreleased 与 YANKED 约定
+- [first-publish.md](./references/first-publish.md) — npm 首发准备流程、package.json 字段模板与首发检查清单
+- [release-script.md](./references/release-script.md) — 多包（workspace）发布要点说明，配套可复制模板 [templates/release.mjs](./templates/release.mjs)
+- [cc-plugin-version.md](./references/cc-plugin-version.md) — 处理 package.json、plugin.json、marketplace.json 与文档之间的版本号一致性问题
