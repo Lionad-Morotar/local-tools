@@ -47,7 +47,7 @@ disable-model-invocation: true
    ├─ 6.1 生成最终报告（report.md）
    ├─ 6.2 向用户展示主日志位置
    ├─ 6.3 用户审核与反馈
-   └─ 6.4 如果用户有 `/save-ob-chaos` 技能，执行并存档报告文件
+   └─ 6.4 如果用户有文档存档技能（如保存文件到 obsidian）则执行存档
 ```
 
 ---
