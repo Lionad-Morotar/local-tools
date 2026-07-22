@@ -14,12 +14,14 @@ while [ $# -gt 0 ]; do
 done
 
 # 向上找 workspace 根（.vscode/.git 标记），哨兵须落在扩展 watch 的 workspace 根下
+# 注意 .git 用 -e 而非 -d：子模块和 worktree 的 .git 是指向主仓的指针文件，
+# 用 -d 会跳过真正的 workspace 根，把哨兵落到上层父仓
 find_workspace_root() {
   local dir="$PWD"
-  while [ "$dir" != "/" ] && [ ! -d "$dir/.vscode" ] && [ ! -d "$dir/.git" ]; do
+  while [ "$dir" != "/" ] && [ ! -d "$dir/.vscode" ] && [ ! -e "$dir/.git" ]; do
     dir="$(dirname "$dir")"
   done
-  if [ "$dir" = "/" ] && [ ! -d "/.vscode" ] && [ ! -d "/.git" ]; then
+  if [ "$dir" = "/" ] && [ ! -d "/.vscode" ] && [ ! -e "/.git" ]; then
     echo "ERR: cwd 不在 VSCode workspace 下（找不到 .vscode/.git），哨兵通道不可用" >&2
     return 1
   fi

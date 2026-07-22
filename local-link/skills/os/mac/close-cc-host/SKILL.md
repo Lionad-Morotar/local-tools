@@ -48,6 +48,7 @@ cc 不主动找 —— 扩展通过 `environmentVariableCollection` 把本窗口
 - **直接 dispose = 强杀 = 丢 hooks**：扩展已改为 SIGTERM 优雅退出，别绕过扩展直接 kill pty。
 - **老终端无 `$VSC_WINDOW_CLOSE_HOOK`**：环境变量启动时定型 → 哨兵兜底。
 - **哨兵通道一触即发**：`touch .close-*-signal` 在真 workspace 下立即触发关 host。验证务必在 `mktemp -d` 隔离目录跑。
+- **子模块/worktree 的 `.git` 是文件不是目录**：close.sh 找 workspace 根必须用 `-e` 判 `.git`，用 `-d` 会越过子模块根把哨兵落到上层父仓（扩展只 watch `workspaceFolders[0]`，落错位置即静默失败）。
 - **关闭即终止当前会话**：close.sh 必须最后一条，commit / 存盘提前做完。
 
 ## 解耦
