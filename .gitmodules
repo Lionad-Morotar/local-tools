@@ -7,9 +7,6 @@
 [submodule "git-shit-done-cn"]
 	path = syncs/git-shit-done-cn
 	url = https://github.com/Lionad-Morotar/get-shit-done-cn.git
-[submodule "deep-fact-check"]
-	path = local-link/skills/deep-fact-check
-	url = git@github.com:Lionad-Morotar/deep-fact-check-skill.git
 [submodule "translating-project"]
 	path = local-link/skills/translating-project
 	url = https://github.com/Lionad-Morotar/translating-project.git
