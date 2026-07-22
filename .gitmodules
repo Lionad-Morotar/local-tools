@@ -13,15 +13,9 @@
 [submodule "translating-project"]
 	path = local-link/skills/translating-project
 	url = https://github.com/Lionad-Morotar/translating-project.git
-[submodule "anti-render-skill"]
-	path = local-link/skills/anti-render-skill
-	url = git@github.com:Lionad-Morotar/anti-render-skill.git
 [submodule "local-link/skills/mcp-builder"]
 	path = local-link/skills/mcp-builder
 	url = https://github.com/Lionad-Morotar/mcp-builder.git
-[submodule "local-link/skills/anti-render-skill"]
-	path = local-link/skills/anti-render-skill
-	url = git@github.com:Lionad-Morotar/anti-render-skill.git
 [submodule "local-link/skills/remind-me-skill"]
 	path = local-link/skills/remind-me-skill
 	url = https://github.com/Lionad-Morotar/remind-me-skill.git
