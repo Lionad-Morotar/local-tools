@@ -18,7 +18,7 @@
  */
 
 import { execSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 const argv = process.argv.slice(2)
@@ -29,6 +29,15 @@ const cwd = cwdFlag !== -1 ? argv[cwdFlag + 1] : process.cwd()
 
 const NPM_REGISTRY = 'https://registry.npmjs.org'
 const results = []
+
+/** registry URL 归一化：去尾部斜杠、http 升 https，使不同写法的同源地址可比较 */
+function normalizeRegistry(url) {
+  if (!url) return null
+  return url.trim().replace(/\/+$/, '').replace(/^http:/, 'https:')
+}
+function isOfficialRegistry(url) {
+  return normalizeRegistry(url) === NPM_REGISTRY
+}
 
 function report(name, status, detail = '') {
   results.push({ name, status, detail })
@@ -197,19 +206,162 @@ function checkVersionConsistency(pkg, changelogVersion) {
   }
 }
 
-/** npm registry 检测：404 = 首发。显式锁官方源，避免镜像同步延迟造成假阴性 */
-function checkRegistry(pkg) {
+/**
+ * 发布目标识别：读 package.json 静态字段判定分发渠道，决定 registry 检查与首发判定方式。
+ * Why: 技能历史上默认"项目=npm 包"，但项目可能是 VSCode 扩展（vsce）、CLI 等非 npm 渠道。
+ * 对这些项目跑 npm registry 检查会产出"404=首发""registry 版本 fail"等假信号——
+ * 必须先识别发布目标，再据此分流检查项，避免 agent 人工过滤噪音。
+ * 只读静态字段（不引入网络/工具调用），保持 preflight 毫秒级纯本地。
+ */
+function detectPublishTarget(pkg) {
+  if (pkg.engines?.vscode) return 'vscode-extension'
+  if (pkg.bin) return 'cli'
+  return 'npm-package'
+}
+
+/**
+ * registry / 首发判定，按发布目标分流。
+ * - vscode-extension：不上 npm registry，首发判定改用 git tag 历史（无 v* tag = 首发）
+ * - npm-package / cli：npm view 查询，404 = 首发；显式锁官方源避免镜像同步延迟假阴性
+ */
+function checkRegistry(pkg, target, label = '') {
+  const suffix = label ? ` (${label})` : ''
   if (pkg.private) {
-    report('npm registry', 'info', 'private 包，跳过')
+    // monorepo 遍历时 private 包静默跳过，避免噪音；单包模式保留提示
+    if (!label) report('npm registry', 'info', 'private 包，跳过')
+    return
+  }
+  if (target === 'vscode-extension') {
+    const tag = run(`git tag -l 'v*' --sort=-v:refname | head -1`)
+    if (!tag.ok || !tag.out) {
+      report(`首发判定${suffix}`, 'info', 'VSCode 扩展（vsce），无 v* tag = 首发')
+    } else {
+      report(`首发判定${suffix}`, 'info', `VSCode 扩展（vsce），最新 tag = ${tag.out}`)
+    }
     return
   }
   const r = run(`npm view ${pkg.name} version --registry ${NPM_REGISTRY}`, 15_000)
   if (r.ok && r.out) {
-    report('npm registry', 'info', `已发布，latest = ${r.out}`)
+    report(`npm registry${suffix}`, 'info', `${pkg.name} 已发布，latest = ${r.out}`)
   } else if (/E404|404/.test(r.err)) {
-    report('npm registry', 'info', '查无此包（404）= npm 首发，走「6. 首次发布检测」')
+    report(`npm registry${suffix}`, 'info', `${pkg.name} 查无此包（404）= npm 首发，走「6. 首次发布检测」`)
   } else {
-    report('npm registry', 'warn', `查询失败（网络/认证），无法判定首发状态: ${r.err.slice(0, 120)}`)
+    report(`npm registry${suffix}`, 'warn', `${pkg.name} 查询失败（网络/认证），无法判定首发状态: ${r.err.slice(0, 120)}`)
+  }
+}
+
+/**
+ * 展开所有实际发布目标：单包项目即根包；monorepo 展开 workspace 子包。
+ * Why: preflight 历史上只查根 package.json，而 monorepo 根包通常 private，
+ * 导致 registry 凭证、首发判定等检查被整体跳过——真正发布的是子包，
+ * 全局 registry 为镜像且子包缺 publishConfig 的问题要到 publish 时才以
+ * ENEEDAUTH 爆出来（读查询在镜像上成功，给出"一切正常"的假信号）。
+ */
+function enumeratePackages(rootPkg) {
+  const patterns = readWorkspacePatterns(rootPkg)
+  if (!patterns.length) {
+    return [{ pkg: rootPkg, dir: cwd, label: rootPkg.name ?? 'root' }]
+  }
+  const dirs = []
+  for (const pattern of patterns) {
+    // 只支持 'dir' 与 'dir/*' 两种形式（覆盖绝大多数 workspace 配置），不引入 glob 依赖
+    const m = pattern.match(/^(.+?)\/\*$/)
+    if (m) {
+      const base = join(cwd, m[1])
+      if (!existsSync(base)) continue
+      for (const entry of readdirSync(base, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue
+        const dir = join(base, entry.name)
+        if (existsSync(join(dir, 'package.json'))) dirs.push(dir)
+      }
+    } else {
+      const dir = join(cwd, pattern)
+      if (existsSync(join(dir, 'package.json'))) dirs.push(dir)
+    }
+  }
+  const packages = []
+  for (const dir of dirs) {
+    try {
+      const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'))
+      packages.push({ pkg, dir, label: pkg.name ?? dir })
+    } catch {
+      report('workspace 包', 'fail', `${dir}/package.json 解析失败`)
+    }
+  }
+  if (!packages.length) report('workspace', 'warn', '声明了 workspace 但未展开到任何包')
+  return packages
+}
+
+/** 读取 workspace 声明：package.json workspaces 字段优先，其次 pnpm-workspace.yaml（轻量解析，不引入 yaml 依赖） */
+function readWorkspacePatterns(rootPkg) {
+  if (Array.isArray(rootPkg.workspaces)) return rootPkg.workspaces
+  if (Array.isArray(rootPkg.workspaces?.packages)) return rootPkg.workspaces.packages
+  const file = join(cwd, 'pnpm-workspace.yaml')
+  if (!existsSync(file)) return []
+  const patterns = []
+  let inPackages = false
+  for (const line of readFileSync(file, 'utf8').split('\n')) {
+    if (/^packages:/.test(line)) {
+      inPackages = true
+      continue
+    }
+    if (!inPackages) continue
+    const m = line.match(/^\s+-\s*['"]?([^'"\s]+)['"]?\s*$/)
+    if (m) patterns.push(m[1])
+    else if (/^\S/.test(line)) break // 遇到下一个顶层 key，packages 块结束
+  }
+  return patterns
+}
+
+/**
+ * 逐包校验有效发布 registry 是否符合预期。
+ * 有效发布 registry 优先级：publishConfig.registry > @scope:registry（npmrc）> 全局 registry——
+ * npm / pnpm / changeset publish 都按此优先级解析发布目标。
+ * Why: 镜像源（npmmirror 等）是只读的，全局 registry 配成镜像本意是加速 install，
+ * 但若包未声明 publishConfig.registry，publish 会跟随全局配置发往镜像，
+ * 以 ENEEDAUTH 或 405 爆出来。声明了 publishConfig 或 scope registry 视为显式意图，放行。
+ */
+function checkPublishRegistries(packages, isMonorepo) {
+  const publishable = packages.filter(({ pkg }) => !pkg.private && pkg.name)
+  if (!publishable.length) return
+  const globalRegistry = normalizeRegistry(run('npm config get registry').out)
+  const scopeCache = new Map()
+  const scopeRegistry = (name) => {
+    const scope = name.startsWith('@') ? name.split('/')[0] : null
+    if (!scope) return null
+    if (!scopeCache.has(scope)) {
+      const out = run('npm config get ' + scope + ':registry').out
+      scopeCache.set(scope, out && out !== 'undefined' ? normalizeRegistry(out) : null)
+    }
+    return scopeCache.get(scope)
+  }
+
+  for (const { pkg } of publishable) {
+    const label = isMonorepo ? ` (${pkg.name})` : ''
+    const declared = normalizeRegistry(pkg.publishConfig?.registry)
+    const scoped = scopeRegistry(pkg.name)
+
+    if (declared && isOfficialRegistry(declared)) {
+      report(`publish registry${label}`, 'pass', 'publishConfig → 官方源')
+    } else if (declared) {
+      report(`publish registry${label}`, 'info', `publishConfig → ${declared}（私有源，确认已登录该源）`)
+    } else if (scoped) {
+      report(`publish registry${label}`, 'info', `npmrc ${pkg.name.split('/')[0]}:registry → ${scoped}（确认已登录该源）`)
+    } else if (isOfficialRegistry(globalRegistry)) {
+      report(`publish registry${label}`, 'pass', '默认 registry 即官方源')
+    } else {
+      report(
+        `publish registry${label}`,
+        'fail',
+        `${pkg.name} 无 publishConfig.registry，发布目标将跟随全局 registry = ${globalRegistry}（镜像/私有源通常只读，publish 会 ENEEDAUTH 或发到错误源）。` +
+          '修复：package.json 添加 "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" }',
+      )
+    }
+
+    // scoped 包默认 private 发布；publish 工具链（changeset config.access / npmrc access=public）有全局配置时可忽略
+    if (pkg.name.startsWith('@') && pkg.publishConfig?.access !== 'public') {
+      report(`publish access${label}`, 'warn', 'scoped 包未在 publishConfig 声明 access: public（若发布工具链无全局 access 配置，会默认发布为 private）')
+    }
   }
 }
 
@@ -229,51 +381,72 @@ function checkPostTag(pkg) {
   }
 }
 
-function checkPostRegistry(pkg) {
+function checkPostRegistry(pkg, target, label = '') {
+  const suffix = label ? ` (${label})` : ''
   if (pkg.private) return
+  if (target === 'vscode-extension') {
+    // VSCode 扩展不上 npm，--post 改校验 vsix 产物（vsce package 生成 <name>-<version>.vsix）
+    const vsix = `${pkg.name}-${pkg.version}.vsix`
+    if (existsSync(join(cwd, vsix))) {
+      report(`vsix 产物${suffix}`, 'pass', `${vsix} 已生成`)
+    } else {
+      report(`vsix 产物${suffix}`, 'fail', `${vsix} 未找到，确认已跑 pnpm release / vsce package`)
+    }
+    return
+  }
   const v = run(`npm view ${pkg.name}@${pkg.version} version --registry ${NPM_REGISTRY}`, 15_000)
   if (v.ok && v.out === pkg.version) {
-    report('registry 版本', 'pass', `${pkg.name}@${pkg.version} 可查`)
+    report(`registry 版本${suffix}`, 'pass', `${pkg.name}@${pkg.version} 可查`)
   } else {
-    report('registry 版本', 'fail', `官方源查不到 ${pkg.name}@${pkg.version}（刚发布可能有秒级延迟，稍后重试）`)
+    report(`registry 版本${suffix}`, 'fail', `官方源查不到 ${pkg.name}@${pkg.version}（刚发布可能有秒级延迟，稍后重试）`)
   }
 
   const tags = run(`npm view ${pkg.name} dist-tags --json --registry ${NPM_REGISTRY}`, 15_000)
   if (tags.ok && tags.out) {
-    report('dist-tags', 'info', tags.out.replace(/\s+/g, ' ').trim())
+    report(`dist-tags${suffix}`, 'info', tags.out.replace(/\s+/g, ' ').trim())
   }
 
   // workspace:* 残留会让安装方直接失败，必须拦截
   const deps = run(`npm view ${pkg.name}@${pkg.version} dependencies --json --registry ${NPM_REGISTRY}`, 15_000)
   if (deps.ok && /workspace:/.test(deps.out)) {
-    report('workspace 协议', 'fail', '已发布包的 dependencies 仍含 workspace:*，应使用 pnpm publish')
+    report(`workspace 协议${suffix}`, 'fail', '已发布包的 dependencies 仍含 workspace:*，应使用 pnpm publish')
   } else if (deps.ok) {
-    report('workspace 协议', 'pass', 'dependencies 无 workspace:* 残留')
+    report(`workspace 协议${suffix}`, 'pass', 'dependencies 无 workspace:* 残留')
   }
 }
 
 // ─── 主流程 ──────────────────────────────────────────────────
 
 if (checkGitRepo()) {
-  const pkg = readPackage()
-  if (pkg) {
-    report('包', 'info', `${pkg.name ?? '(unnamed)'}@${pkg.version ?? '?'}${pkg.private ? ' (private)' : ''}`)
+  const rootPkg = readPackage()
+  const target = rootPkg ? detectPublishTarget(rootPkg) : null
+  // monorepo 展开 workspace 子包——真正的发布目标是这些包，而非（通常 private 的）根包
+  const packages = rootPkg ? enumeratePackages(rootPkg) : []
+  const isMonorepo = rootPkg && !(packages.length === 1 && packages[0].dir === cwd)
+
+  if (rootPkg) {
+    if (isMonorepo) {
+      report('workspace', 'info', `${packages.length} 个包：${packages.map(({ label }) => label).join(', ')}`)
+    } else {
+      report('包', 'info', `${rootPkg.name ?? '(unnamed)'}@${rootPkg.version ?? '?'}${rootPkg.private ? ' (private)' : ''}`)
+    }
+    report('发布目标', 'info', target)
   }
 
   if (isPost) {
-    if (pkg) {
-      checkPostTag(pkg)
-      checkPostRegistry(pkg)
-    }
+    if (rootPkg?.version) checkPostTag(rootPkg)
+    for (const { pkg, label } of packages) checkPostRegistry(pkg, target, isMonorepo ? label : '')
   } else {
     checkWorktree()
     checkBranchSync()
     probeBranchModel()
     const changelogVersion = checkChangelog()
-    if (pkg) {
-      checkReleaseScripts(pkg)
-      checkVersionConsistency(pkg, changelogVersion)
-      checkRegistry(pkg)
+    if (rootPkg) {
+      checkReleaseScripts(rootPkg)
+      // 版本 tag 占用以整次发布为准（monorepo 共用一个 release tag），只看根版本
+      checkVersionConsistency(rootPkg, changelogVersion)
+      for (const { pkg, label } of packages) checkRegistry(pkg, target, isMonorepo ? label : '')
+      checkPublishRegistries(packages, isMonorepo)
     }
   }
 }

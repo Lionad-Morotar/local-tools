@@ -48,7 +48,7 @@
 - [ ] bugs 和 homepage 字段已配置
 - [ ] keywords 包含相关关键词（至少 5 个）
 - [ ] license 已声明（MIT/ISC/Apache 等）
-- [ ] publishConfig 配置了正确的 registry
+- [ ] publishConfig 配置了正确的 registry（发布前置条件，preflight `publish registry` 项强制检查，不依赖本清单）
 - [ ] publishConfig.access 设置为 "public"（scoped 包必需）
 - [ ] 发布准备已提交：`chore: release prepare`
 - [ ] 运行 `npm publish --dry-run` 预览发布内容

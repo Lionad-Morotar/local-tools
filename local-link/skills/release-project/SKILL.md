@@ -1,6 +1,6 @@
 ---
 name: release-project
-description: 项目版本发布流程指导，帮助用户完成版本规划、Changelog 管理、版本号升级、Git 标签创建和 npm 首次发布准备。Use when: (1) 用户需要发布新版本 (2) 需要创建版本发布流程 (3) 需要管理版本号和 Changelog (4) 需要自动化版本发布 (5) 需要识别分支模型并确保发版分支同步 (6) 首次 npm 发布准备
+description: 项目版本发布流程指导，帮助用户完成版本规划、Changelog 管理、版本号升级、Git 标签创建和首次发布准备（支持 npm 包与 VSCode 扩展/vsce 等多发布目标）。Use when: (1) 用户需要发布新版本 (2) 需要创建版本发布流程 (3) 需要管理版本号和 Changelog (4) 需要自动化版本发布 (5) 需要识别分支模型并确保发版分支同步 (6) 首次发布准备（npm / VSCode 扩展）
 argument-hint: "[--changelog-only] [--sync-to <target-branch>]"
 ---
 
@@ -43,7 +43,7 @@ node scripts/preflight.mjs --post     # 发布后校验（第 7 步）
 node scripts/preflight.mjs --json     # JSON 输出，供自动化流程消费
 ```
 
-脚本覆盖：git 仓库、工作区干净、当前分支与远程同步、长期分支与最新 tag 探测、CHANGELOG 结构、release 脚本与钩子链、npm registry 首发状态、版本 tag 冲突。**fail 项必须先处理再继续**；info 项（分支/tag/registry 状态）直接作为第 1 步分支模型判定的输入。
+脚本覆盖：git 仓库、工作区干净、当前分支与远程同步、长期分支与最新 tag 探测、**发布目标识别**（npm 包 / VSCode 扩展 / CLI）、CHANGELOG 结构、release 脚本与钩子链、按发布目标分流的 registry/首发判定（monorepo 自动展开 workspace **逐包检查**：publish registry 凭证与逐包首发判定）、版本 tag 冲突。**fail 项必须先处理再继续**；info 项（发布目标、分支/tag/首发状态）直接作为后续步骤的输入——发布目标决定走 npm 路径还是 VSCode 扩展（vsce）路径。
 
 ## 1. 分支检查
 
@@ -117,6 +117,8 @@ node scripts/preflight.mjs --json     # JSON 输出，供自动化流程消费
 | `minor` | 新功能（向后兼容） | `1.0.0` → `1.1.0` |
 | `major` | 破坏性变更 | `1.0.0` → `2.0.0` |
 
+**显式版本号**：当用户通过 `/release-project <x.y.z>` 传入具体语义化版本号（如 `0.1.0`、`1.0.0`）时，直接设为该版本号，**不走 patch/minor/major 相对升级**——`npm version minor` 等是相对当前版本推算，可能与用户指定的目标版本不一致（如当前 `0.0.1` + 用户要 `1.0.0` 时，`npm version minor` 只会给 `0.1.0`）。具体版本号直接改 `package.json` 的 `version` 字段或 `npm version <x.y.z> --no-git-tag-version`。
+
 ## 3. Changelog 整理
 
 遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 规范。格式模板、变动类型表、Unreleased 与 YANKED 约定见 [changelog-format](./references/changelog-format.md)。
@@ -148,7 +150,7 @@ node scripts/preflight.mjs --json     # JSON 输出，供自动化流程消费
   - 反例：`- 增加交互式 pager` 与 `- 修复 pager footer 渲染异常` 应合并为 `- 为 supports/list 增加交互式 pager`
 - [ ] 非终端用户可见的变更已标记 `[internal]`：维护脚本、CI、内部工具、模式生成等不向最终用户暴露的条目，前缀 `[internal]`
   - 示例：`- [internal] watch-patterns 重启时通过持久化 hash 缓存避免全量重新上传`
-- [ ] 从未发布过的历史版本段已收敛合并：`npm view <pkg> version` 404 说明包未上架，其 0.x 历史段对终端用户不可见，应合并为首发段（用户只看最终形态，"相对旧实现的优化""修复了未发布版本的 bug"一类描述无意义）
+- [ ] 从未发布过的历史版本段已收敛合并：按发布目标判定首发——npm 包看 `npm view <pkg> version` 是否 404，VSCode 扩展看是否有 `v*` git tag。未发布时其 0.x 历史段对终端用户不可见，应合并为首发段（用户只看最终形态，"相对旧实现的优化""修复了未发布版本的 bug"一类描述无意义）
 - [ ] **用户已确认 Changelog 内容**
 
 ## 4. 版本号升级
@@ -196,9 +198,11 @@ git push origin main --tags
 git push origin <当前分支> --tags
 ```
 
-## 6. 首次发布检测 & npm 准备
+## 6. 首次发布检测 & 发布准备
 
-**触发时机**：完成 "Git 提交 & 标签" 后。
+**触发时机**：完成 "Git 提交 & 标签" 后。按 preflight 识别的**发布目标**分流。
+
+### npm 包（发布目标 = npm-package / cli）
 
 **以 registry 为准**——git tag 数只反映 git 历史，monorepo 改造 / 包改名场景会误判（项目可能留有旧包时代的 tag，但新包名在 npm 从未上架）。preflight 脚本已执行该检测（`npm view <pkg> version --registry https://registry.npmjs.org`，404 = 首发）；若未跑脚本则手工执行。
 
@@ -206,10 +210,15 @@ git push origin <当前分支> --tags
 
 > "检测到这是您第一次发布此项目。是否需要我协助进行 npm 发布准备工作？包括：
 > - 从 GitHub 读取您的个人信息（author、repository 等）
-> - 完善 package.json 字段（keywords、license、bugs、homepage 等）
-> - 配置 publishConfig（registry、access）"
+> - 完善 package.json 字段（keywords、license、bugs、homepage 等）"
 
 用户确认后，按 [first-publish](./references/first-publish.md) 执行准备流程（含 package.json 字段模板与首发检查清单）。
+
+**publishConfig 不在 Ask 可选项之列，它是发布前置条件**——由 preflight 机械强制检查（`publish registry` 项）：全局 registry 为镜像源（npmmirror 等）而包缺 `publishConfig.registry` 时，publish 必然 ENEEDAUTH 或发到错误源。镜像源只读，`npm view` 等读查询在镜像上照样成功，给出"一切正常"的假信号，问题只在写操作（publish）时爆出。因此该项以 fail 阻断，补齐后直接发版，无需等用户确认。
+
+### VSCode 扩展（发布目标 = vscode-extension）
+
+首发判定用 git tag 历史（无 `v*` tag = 首发），**不用 `npm view`**（扩展不上 npm）。首发准备走 [vscode-extension-release](./references/vscode-extension-release.md) 的「首次发布准备」清单：`publisher`、`engines.vscode`、`main`、`contributes` 等 package.json 必备字段，`.vscodeignore` 卫生，README/LICENSE 强制项，以及（若上架 Marketplace）Azure DevOps PAT 配置。本地分发形态无需 PAT，`vsce package` 生成 vsix 即可。
 
 ## 发布脚本约定（pnpm release，必备）
 
@@ -243,9 +252,29 @@ pnpm release
 
 用 Node 脚本按**依赖序**发布：直接复制 [templates/release.mjs](./templates/release.mjs) 为项目 `scripts/release.mjs`，按依赖序填写 `PACKAGES` 即可。模板背后的完整要点见 [release-script](./references/release-script.md)：依赖序硬编码、dist-tag 自动推导、registry 显式锁官方源、必须用 `pnpm publish`（`workspace:*` 转换）、参数透传、2FA/OTP 交互边界、npm 首发 latest 平台行为等。
 
+### Monorepo 使用 changesets
+
+`release` 为 `changeset publish`（版本管理走 `changeset version`）时，**`publishConfig` 是唯一的 registry 锁定手段**——`changeset publish` 的 CLI 只有 `--otp` / `--tag`，没有 registry 参数，发布目标按 npm 配置优先级（`publishConfig.registry` > `@scope:registry` > 全局 registry）解析。每个可发布包的 package.json 必须声明（preflight 机械强制检查）：
+
+```json
+"publishConfig": {
+  "access": "public",
+  "registry": "https://registry.npmjs.org/"
+}
+```
+
+Why 不能指望"全局 registry 正好是官方源"：开发者常把全局 registry 配成镜像（npmmirror 等）加速 install，install 与 publish 的意图冲突——publishConfig 包级声明、随包走任何环境/CI，两者互不干扰。
+
+### VSCode 扩展（vsce）
+
+发布目标为 `vscode-extension`（package.json 含 `engines.vscode`）时，release 脚本用 `vsce package`/`vsce publish` 而非 `pnpm publish`。门禁链相同（prerelease→build→prebuild→test），但有一个关键差异：**`vscode:prepublish` 必须直调 `tsc -p ./`** 而非 `pnpm run build`，否则经 prebuild 重复跑 test。完整 scripts 模板、`.vscodeignore` 卫生、首发判定与 dry-run 替代方案见 [vscode-extension-release](./references/vscode-extension-release.md)。
+
 ### Dry-run 验证
 
-脚本落地后必须跑通一次 `pnpm release -- --dry-run`（完整链路：test → build → 各包 publish dry-run），方可视为可用。
+脚本落地后必须跑通一次验证，**按 release 脚本内容选方式**：
+
+- **release 含 `publish`（npm 包）**：`pnpm release -- --dry-run`（完整链路：test → build → 各包 publish dry-run）
+- **release 含 `vsce package`（VSCode 扩展）**：`vsce package` 无 `--dry-run` 选项，且 pnpm 透传双 `--` 会让 vsce 报 `Invalid version --dry-run`。改为实际执行 `pnpm release` 后，核对 vsce 输出的 "Files included in the VSIX" 清单 vs `.vscodeignore` 预期（无 src/test/docs/node_modules 泄漏）
 
 ## 常见工具选择
 
@@ -281,4 +310,5 @@ pnpm release
 - [changelog-format.md](./references/changelog-format.md) — Keep a Changelog 格式模板、变动类型表、Unreleased 与 YANKED 约定
 - [first-publish.md](./references/first-publish.md) — npm 首发准备流程、package.json 字段模板与首发检查清单
 - [release-script.md](./references/release-script.md) — 多包（workspace）发布要点说明，配套可复制模板 [templates/release.mjs](./templates/release.mjs)
+- [vscode-extension-release.md](./references/vscode-extension-release.md) — VSCode 扩展（vsce）发布：门禁链、`vscode:prepublish` 直调 tsc、`.vscodeignore` 卫生、首发判定与 dry-run 替代
 - [cc-plugin-version.md](./references/cc-plugin-version.md) — 处理 package.json、plugin.json、marketplace.json 与文档之间的版本号一致性问题
