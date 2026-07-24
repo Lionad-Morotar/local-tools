@@ -165,7 +165,11 @@ function readPackage() {
   }
 }
 
-function checkReleaseScripts(pkg) {
+function checkReleaseScripts(pkg, target) {
+  if (target === 'claude-skill') {
+    report('release 脚本', 'pass', 'skill 包（SKILL.md）不通过 npm 发布，无需 release 脚本')
+    return
+  }
   const s = pkg.scripts ?? {}
   if (s.release) {
     report('release 脚本', 'pass', s.release)
@@ -189,13 +193,16 @@ function checkReleaseScripts(pkg) {
   }
 }
 
-function checkVersionConsistency(pkg, changelogVersion) {
+function checkVersionConsistency(pkg, changelogVersion, target) {
   if (!pkg.version) return
-  const tag = run(`git tag -l v${pkg.version}`)
-  if (tag.ok && tag.out) {
-    report('版本 tag', 'fail', `v${pkg.version} 已存在，禁止重复发版，先升级版本号`)
+  const tagCandidates = target === 'claude-skill' && pkg.name
+    ? [pkg.name.startsWith('@') ? `${pkg.name}@${pkg.version}` : `v${pkg.version}`]
+    : [`v${pkg.version}`]
+  const existing = tagCandidates.find((t) => run(`git tag -l ${t}`).out === t)
+  if (existing) {
+    report('版本 tag', 'fail', `${existing} 已存在，禁止重复发版，先升级版本号`)
   } else {
-    report('版本 tag', 'pass', `v${pkg.version} 未被占用`)
+    report('版本 tag', 'pass', `${tagCandidates.join(' / ')} 未被占用`)
   }
   if (changelogVersion && changelogVersion !== pkg.version) {
     report(
@@ -214,9 +221,22 @@ function checkVersionConsistency(pkg, changelogVersion) {
  * 只读静态字段（不引入网络/工具调用），保持 preflight 毫秒级纯本地。
  */
 function detectPublishTarget(pkg) {
+  if (isSkillPackage(pkg)) return 'claude-skill'
   if (pkg.engines?.vscode) return 'vscode-extension'
   if (pkg.bin) return 'cli'
   return 'npm-package'
+}
+
+/**
+ * 识别 Claude Code skill 包：入口为 SKILL.md，通过 `npx skills add owner/repo` 安装，
+ * 不通过 npm registry 分发，因此跳过 registry / publishConfig / release 脚本等 npm 专属检查。
+ */
+function isSkillPackage(pkg) {
+  if (!pkg) return false
+  if (pkg.main === 'SKILL.md' || pkg.name?.endsWith('-skill')) return true
+  const files = Array.isArray(pkg.files) ? pkg.files : []
+  if (files.some((f) => f === 'SKILL.md' || f.endsWith('/SKILL.md'))) return true
+  return false
 }
 
 /**
@@ -229,6 +249,10 @@ function checkRegistry(pkg, target, label = '') {
   if (pkg.private) {
     // monorepo 遍历时 private 包静默跳过，避免噪音；单包模式保留提示
     if (!label) report('npm registry', 'info', 'private 包，跳过')
+    return
+  }
+  if (target === 'claude-skill') {
+    report(`npm registry${suffix}`, 'info', `${pkg.name} 为 skill 包（SKILL.md），不通过 npm registry 分发，跳过`)
     return
   }
   if (target === 'vscode-extension') {
@@ -322,7 +346,7 @@ function readWorkspacePatterns(rootPkg) {
  * 以 ENEEDAUTH 或 405 爆出来。声明了 publishConfig 或 scope registry 视为显式意图，放行。
  */
 function checkPublishRegistries(packages, isMonorepo) {
-  const publishable = packages.filter(({ pkg }) => !pkg.private && pkg.name)
+  const publishable = packages.filter(({ pkg }) => !pkg.private && pkg.name && !isSkillPackage(pkg))
   if (!publishable.length) return
   const globalRegistry = normalizeRegistry(run('npm config get registry').out)
   const scopeCache = new Map()
@@ -367,23 +391,32 @@ function checkPublishRegistries(packages, isMonorepo) {
 
 // ─── 发布后校验 ──────────────────────────────────────────────
 
-function checkPostTag(pkg) {
-  const tag = `v${pkg.version}`
-  if (run(`git tag -l ${tag}`).out === tag) {
-    report('git tag', 'pass', `${tag} 已创建`)
+function checkPostTag(pkg, target) {
+  const tagCandidates = target === 'claude-skill' && pkg.name
+    ? [pkg.name.startsWith('@') ? `${pkg.name}@${pkg.version}` : `v${pkg.version}`]
+    : [`v${pkg.version}`]
+  const local = tagCandidates.find((t) => run(`git tag -l ${t}`).out === t)
+  if (local) {
+    report('git tag', 'pass', `${local} 已创建`)
   } else {
-    report('git tag', 'fail', `${tag} 不存在，发版未完成`)
+    report('git tag', 'fail', `${tagCandidates.join(' / ')} 不存在，发版未完成`)
   }
-  if (run(`git ls-remote --tags origin ${tag}`, 20_000).out.includes(tag)) {
-    report('远程 tag', 'pass', `${tag} 已推送`)
+  const remoteTags = run(`git ls-remote --tags origin ${tagCandidates.join(' ')}`, 20_000).out
+  const remote = tagCandidates.find((t) => remoteTags.includes(t))
+  if (remote) {
+    report('远程 tag', 'pass', `${remote} 已推送`)
   } else {
-    report('远程 tag', 'warn', `${tag} 未在远程，确认是否已 push --tags`)
+    report('远程 tag', 'warn', `${tagCandidates.join(' / ')} 未在远程，确认是否已 push --tags`)
   }
 }
 
 function checkPostRegistry(pkg, target, label = '') {
   const suffix = label ? ` (${label})` : ''
   if (pkg.private) return
+  if (target === 'claude-skill') {
+    report(`registry 版本${suffix}`, 'pass', `${pkg.name} 为 skill 包，不校验 npm registry，推送到 GitHub 即完成分发`)
+    return
+  }
   if (target === 'vscode-extension') {
     // VSCode 扩展不上 npm，--post 改校验 vsix 产物（vsce package 生成 <name>-<version>.vsix）
     const vsix = `${pkg.name}-${pkg.version}.vsix`
@@ -419,7 +452,7 @@ function checkPostRegistry(pkg, target, label = '') {
 
 if (checkGitRepo()) {
   const rootPkg = readPackage()
-  const target = rootPkg ? detectPublishTarget(rootPkg) : null
+  const rootTarget = rootPkg ? detectPublishTarget(rootPkg) : null
   // monorepo 展开 workspace 子包——真正的发布目标是这些包，而非（通常 private 的）根包
   const packages = rootPkg ? enumeratePackages(rootPkg) : []
   const isMonorepo = rootPkg && !(packages.length === 1 && packages[0].dir === cwd)
@@ -430,22 +463,22 @@ if (checkGitRepo()) {
     } else {
       report('包', 'info', `${rootPkg.name ?? '(unnamed)'}@${rootPkg.version ?? '?'}${rootPkg.private ? ' (private)' : ''}`)
     }
-    report('发布目标', 'info', target)
+    report('发布目标', 'info', rootTarget)
   }
 
   if (isPost) {
-    if (rootPkg?.version) checkPostTag(rootPkg)
-    for (const { pkg, label } of packages) checkPostRegistry(pkg, target, isMonorepo ? label : '')
+    if (rootPkg?.version) checkPostTag(rootPkg, rootTarget)
+    for (const { pkg, label } of packages) checkPostRegistry(pkg, detectPublishTarget(pkg), isMonorepo ? label : '')
   } else {
     checkWorktree()
     checkBranchSync()
     probeBranchModel()
     const changelogVersion = checkChangelog()
     if (rootPkg) {
-      checkReleaseScripts(rootPkg)
+      checkReleaseScripts(rootPkg, rootTarget)
       // 版本 tag 占用以整次发布为准（monorepo 共用一个 release tag），只看根版本
-      checkVersionConsistency(rootPkg, changelogVersion)
-      for (const { pkg, label } of packages) checkRegistry(pkg, target, isMonorepo ? label : '')
+      checkVersionConsistency(rootPkg, changelogVersion, rootTarget)
+      for (const { pkg, label } of packages) checkRegistry(pkg, detectPublishTarget(pkg), isMonorepo ? label : '')
       checkPublishRegistries(packages, isMonorepo)
     }
   }

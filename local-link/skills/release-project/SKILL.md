@@ -1,6 +1,6 @@
 ---
 name: release-project
-description: 项目版本发布流程指导，帮助用户完成版本规划、Changelog 管理、版本号升级、Git 标签创建和首次发布准备（支持 npm 包与 VSCode 扩展/vsce 等多发布目标）。Use when: (1) 用户需要发布新版本 (2) 需要创建版本发布流程 (3) 需要管理版本号和 Changelog (4) 需要自动化版本发布 (5) 需要识别分支模型并确保发版分支同步 (6) 首次发布准备（npm / VSCode 扩展）
+description: 项目版本发布流程指导，帮助用户完成版本规划、Changelog 管理、版本号升级、Git 标签创建和首次发布准备（支持 npm 包、VSCode 扩展/vsce、Claude Code skill 包等多发布目标）。Use when: (1) 用户需要发布新版本 (2) 需要创建版本发布流程 (3) 需要管理版本号和 Changelog (4) 需要自动化版本发布 (5) 需要识别分支模型并确保发版分支同步 (6) 首次发布准备（npm / VSCode 扩展 / Claude skill）
 argument-hint: "[--changelog-only] [--sync-to <target-branch>]"
 ---
 
@@ -43,7 +43,7 @@ node scripts/preflight.mjs --post     # 发布后校验（第 7 步）
 node scripts/preflight.mjs --json     # JSON 输出，供自动化流程消费
 ```
 
-脚本覆盖：git 仓库、工作区干净、当前分支与远程同步、长期分支与最新 tag 探测、**发布目标识别**（npm 包 / VSCode 扩展 / CLI）、CHANGELOG 结构、release 脚本与钩子链、按发布目标分流的 registry/首发判定（monorepo 自动展开 workspace **逐包检查**：publish registry 凭证与逐包首发判定）、版本 tag 冲突。**fail 项必须先处理再继续**；info 项（发布目标、分支/tag/首发状态）直接作为后续步骤的输入——发布目标决定走 npm 路径还是 VSCode 扩展（vsce）路径。
+脚本覆盖：git 仓库、工作区干净、当前分支与远程同步、长期分支与最新 tag 探测、**发布目标识别**（npm 包 / VSCode 扩展 / CLI / Claude Code skill 包）、CHANGELOG 结构、release 脚本与钩子链、按发布目标分流的 registry/首发判定（monorepo 自动展开 workspace **逐包检查**：publish registry 凭证与逐包首发判定）、版本 tag 冲突。**fail 项必须先处理再继续**；info 项（发布目标、分支/tag/首发状态）直接作为后续步骤的输入——发布目标决定走 npm 路径、VSCode 扩展（vsce）路径还是 skill 路径。
 
 ## 1. 分支检查
 
@@ -220,9 +220,31 @@ git push origin <当前分支> --tags
 
 首发判定用 git tag 历史（无 `v*` tag = 首发），**不用 `npm view`**（扩展不上 npm）。首发准备走 [vscode-extension-release](./references/vscode-extension-release.md) 的「首次发布准备」清单：`publisher`、`engines.vscode`、`main`、`contributes` 等 package.json 必备字段，`.vscodeignore` 卫生，README/LICENSE 强制项，以及（若上架 Marketplace）Azure DevOps PAT 配置。本地分发形态无需 PAT，`vsce package` 生成 vsix 即可。
 
+### Claude Code skill 包（发布目标 = claude-skill）
+
+**不通过 npm 发布**，安装方使用 [`npx skills`](https://github.com/vercel-labs/skills) 直接从 GitHub 仓库拉取 `SKILL.md`：
+
+```bash
+# 仓库简写
+npx skills add <github-username>/<repo>
+
+# 或指向仓库中的 skill 子目录
+npx skills add https://github.com/<username>/<repo>/tree/main/path/to/skill
+```
+
+因此 skill 包发版**只需要**：
+
+1. 升级 `package.json` 的 `version`（仍用于版本号管理与 tag）
+2. 维护 `CHANGELOG.md`
+3. `git commit` + `git tag` + `git push --tags`
+
+无需 `scripts.release`、`publishConfig`、npm registry 检查或 first-publish 准备。
+
 ## 发布脚本约定（pnpm release，必备）
 
 **如果项目没有 pnpm script `release`，应当补充**——发布入口必须收敛为一条命令，不允许依赖操作者记忆多步顺序。
+
+> **例外**：Claude Code skill 包（`main: SKILL.md`）不通过 npm 发布，无需 `release` 脚本；其发版止于 Git tag 推送。
 
 ### 生命周期门禁链（固定约定）
 
